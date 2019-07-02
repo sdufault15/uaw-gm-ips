@@ -4,5 +4,3 @@
 cohort <- dta %>% 
   filter(NOHIST == 0 & WH == 1 & YIN16 >= 38) %>% 
   select(STUDYNO, FINRACE, SEX, YOB, PLANT, YIN16, YOUT16, yod09, cod_09, V_ICD, yrin16)
-
-#dta %>% filter(NOHIST == 0 & WH == 1) %>% group_by(YIN16 >= 38) %>% summarize(n = n_distinct(STUDYNO))

@@ -1,0 +1,46 @@
+\documentclass{article}
+\usepackage[margin = 1in]{geometry}
+\usepackage{amsmath, amssymb}
+\usepackage{placeins}
+
+\title{Figures}
+\author{Suzanne Dufault}
+\date{\today}
+
+<<r global_options, include=FALSE>>=
+knitr::opts_chunk$set(fig.width=7, fig.height=5, fig.path='../graphs/', 
+                      cache.path='../cache', warning=FALSE, message=FALSE, 
+                      fig.align = 'center')
+@
+
+\begin{document}
+\maketitle
+
+<<data, echo = FALSE, include = FALSE>>=
+library(tidyverse)
+library(boxr)
+library(ggthemr)
+ggthemr(palette = "fresh",
+        layout = "clean")
+box_auth()
+
+cohort <- box_read(485768272681) # need the long dataset for mean age ...
+cohort_long <- box_read(488427532080) # the long dataset
+@
+
+\FloatBarrier
+
+<<barplot_cohort-tenure, echo = FALSE, fig.cap = "The number of person-years observed by calendar year for members in the cohort.">>=
+cohort_long %>%
+  ggplot(aes(x = floor(cal_obs))) + 
+  geom_bar() + 
+  xlab("Calendar Year") + 
+  ylab("Person-Years Observed")
+
+@
+
+
+\FloatBarrier
+
+
+\end{document}

@@ -6,8 +6,9 @@ new_ndi <- box_search("cod10_15_noid.RData") %>%
 ndi <- new_ndi %>% 
   select(STUDYNO = studyno,
          V_ICD = v_icd,
-         yod09 = yrdeath,
-         cod_09 = ICD) 
+         yod09 = yod15,
+         cod_09 = ICD) %>%
+  mutate(yod09 = 1900 + yod09)
 
 # Identifying those that did and did not have 
 # a yod09 in the old cohort data
@@ -34,5 +35,5 @@ cohort <- cohort %>%
 # Saving
 box_save(cohort, 
          dir_id = 80875764240, 
-         file_name = paste0(Sys.Date(), "_cohort-covariates.RData"),
+         file_name = "2019-07-01_cohort-covariates.RData",
          description = "Just the subset from the original auto_vs_09_v5 file.")

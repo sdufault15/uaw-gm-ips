@@ -1,0 +1,117 @@
+\documentclass{article}
+\usepackage[margin = 1in]{geometry}
+\usepackage{amsmath, amssymb}
+\usepackage{placeins}
+\usepackage{booktabs}
+\renewcommand{\arraystretch}{1.2}
+\usepackage[flushleft]{threeparttable}
+
+\title{Tables}
+\author{Suzanne Dufault}
+\date{\today}
+
+\begin{document}
+
+% https://thatdatatho.com/2018/08/20/easily-create-descriptive-summary-statistic-tables-r-studio/ other ideas
+
+\maketitle
+
+<<data, echo = FALSE, include = FALSE>>=
+library(tidyverse)
+#install.packages("qwraps2", repo = "http://cran.rstudio.com")
+library(qwraps2)
+library(boxr)
+box_auth()
+
+cohort <- box_read(485768272681) # need the long dataset for mean age ...
+cohort_long <- box_read(488427532080) # the long dataset
+@
+
+<<gendesc, echo = FALSE>>=
+gendesc_long <- 
+  list("Sex" = 
+         list("Males" = ~qwraps2::n_perc(sex == 1),
+              "Females" = ~qwraps2::n_perc(sex == 0)),
+       "Age" = 
+         list("mean (SD)" = ~qwraps2::mean_sd(age_obs, denote_sd = "paren")),
+       "Race" = 
+         list("Whites" = ~qwraps2::n_perc(race == 1),
+              "Blacks" = ~qwraps2::n_perc(race == 0)),
+       "Plant, \\%" = 
+         list("Plant 1" = ~qwraps2::n_perc(PLANT == 1),
+              "Plant 2" = ~qwraps2::n_perc(PLANT == 2),
+              "Plant 3" = ~qwraps2::n_perc(PLANT == 3)),
+       "Calendar year of hire" = 
+         list("min" = ~min(YIN16),
+              "mean (SD)" = ~qwraps2::mean_sd(YIN16, denote_sd = "paren"),
+              "max" = ~max(YIN16)),
+       "Years since hire" = 
+         list("mean (SD)" = ~qwraps2::mean_sd(tenure, denote_sd = "paren")))
+@
+
+<<overall, echo = FALSE, results="asis">>=
+`person-years` <- cohort_long %>%
+  ungroup()
+
+overall <- qwraps2::summary_table(`person-years`, gendesc_long)
+@
+
+<<subgroups, echo = FALSE, results= 'asis'>>=
+cohort <- cohort %>%
+  mutate(tenure = ceiling(yod09 - yrin16)) %>%
+  mutate(age_obs = ageHire + tenure/2)
+
+suicide <- cohort %>%
+  filter(suicide == 1) %>%
+  ungroup()
+
+# alcohol <- cohort %>%
+#   filter(alcohol == 1) %>%
+#   ungroup()
+
+overdose <- cohort %>%
+  filter(poison == 1) %>%
+  ungroup()
+
+suic <- qwraps2::summary_table(suicide, gendesc_long)
+#qwraps2::summary_table(alcohol, gendesc_long)
+od <- qwraps2::summary_table(overdose, gendesc_long)
+@
+
+<<combine, echo = FALSE, eval = FALSE, results = 'asis'>>=
+cbind(overall, suic, od)
+@
+
+\begin{threeparttable}
+\caption{Characteristics of suicides, overdoses, and person-time distribution, UAW-GM cohort 1941-2015}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Characteristic & Person-years (N = 1,505,574) & Suicide (N = 276) & Overdoses (N = 67)\\
+\midrule
+\bf{Age} & ~ & ~ & ~\\
+~~ mean (SD) & 49.92 (15.11) & 38.26 (10.16) & 36.31 (8.43)\\
+\bf{Sex, \%} & ~ & ~ & ~\\
+~~ Males &  87.95 & 95.65 & 95.52\\
+~~ Females &12.05 & 4.35 & 4.48\\
+\bf{Race, \%} & ~ & ~ & ~\\
+~~ Whites & 82.10 & 88.41 & 74.63\\
+~~ Blacks & 17.90 & 11.59 & 25.37\\
+\bf{Plant, \%} & ~ & ~ & ~\\
+~~ Plant 1 & 23.01 & 17.39 & 19.40\\
+~~ Plant 2 & 42.31 & 49.64 & 65.67\\
+~~ Plant 3 & 34.55 & 32.25 & 14.93\\
+\bf{Calendar year of hire} & ~ & ~ & ~\\
+~~ min & 1938 & 1940 & 1942\\
+~~ mean (SD) & 1962 (11.47) & 1962 (11.35) & 1970 (10.95)\\
+~~ max & 1987 & 1979 & 1978\\
+\bf{Years since hire} & ~ & ~ & ~\\
+~~ mean (SD) & 42.94 (10.87) & 23.22 (13.63) & 23.96 (12.34)\\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}
+\footnotesize
+\item Suicide was determined by ICD-9 codes E950-E959 and ICD-10 codes X60-X84, Y87, and U03. Overdose was determined by ICD-9 codes E850-E858, E980.0-E980.5 (undetermined intent) and ICD-10 codes X40-X44 and Y10-Y14.
+\end{tablenotes}
+\end{threeparttable}
+
+\end{document}

@@ -1,7 +1,8 @@
 \documentclass{article}
-\usepackage[margin = 1in]{geometry}
+\usepackage[margin = 0.5in]{geometry}
 \usepackage{amsmath, amssymb}
 \usepackage{placeins}
+\usepackage{pdflscape}
 
 \title{Figures}
 \author{Suzanne Dufault}
@@ -19,6 +20,8 @@ knitr::opts_chunk$set(fig.width=7, fig.height=5, fig.path='../graphs/',
 <<data, echo = FALSE, include = FALSE>>=
 library(tidyverse)
 library(boxr)
+library(ggridges)
+library(ggfittext)
 library(ggthemr)
 ggthemr(palette = "fresh",
         layout = "clean")
@@ -28,19 +31,310 @@ cohort <- box_read(485768272681) # need the long dataset for mean age ...
 cohort_long <- box_read(488427532080) # the long dataset
 @
 
+<<point-line-plot_employment-by-cal, echo = FALSE, fig.cap = "Employment trends at each of the three plants. Points represent the number of people employed and leaving work (left axis) while the line denotes the proportion of employed individuals leaving work (right axis) in a given calendar year.", fig.height=7>>=
+employment <- cohort_long %>%
+  ungroup() %>%
+  group_by(STUDYNO) %>%
+  filter(floor(cal_obs) <= YOUT16) %>%
+  mutate(leaving_work = ifelse(floor(cal_obs) == floor(YOUT16) & YOUT16 != 1995, 1, 0))
+
+
+# employment %>%
+#   ungroup() %>%
+#   filter(PLANT != 9) %>%
+#   mutate(PLANT = ifelse(PLANT == 1, "Detroit",
+#                         ifelse(PLANT == 2, "Ypsilanti",
+#                                "Saginaw"))) %>%
+#   ggplot(aes(x = cal_obs)) + 
+#   facet_wrap(~PLANT, ncol = 1) + 
+#   geom_bar() + 
+#   xlab("Calendar Year") + 
+#   ylab("Number of Employed Person-Years Observed")
+
+employment_plot_dta <- employment %>%
+  ungroup() %>%
+  filter(PLANT != 9) %>%
+  group_by(cal_obs, PLANT) %>%
+  summarize(n_py = n_distinct(STUDYNO),
+            n_leave = sum(leaving_work)) %>%
+  mutate(rate = n_leave/n_py) %>%
+  mutate(PLANT = ifelse(PLANT == 1, "Plant 1", #  - Detroit
+                        ifelse(PLANT == 2, "Plant 2", # - Ypsilanti
+                               "Plant 3 "))) %>% # - Saginaw
+  filter(cal_obs < 1995) 
+
+employment_plot_dta %>% 
+  ggplot(aes(x = cal_obs)) +
+  xlab("Calendar Year") +
+  ylab("Person-Years (Count)") +
+  facet_wrap(~PLANT, ncol = 1) + 
+  geom_line(aes(y = rate*20000, 
+                color = "Proportion Leaving Work",
+                shape = "Proportion Leaving Work"), 
+            size = 1) + 
+  geom_point(aes(y = n_py,
+                 color = "At Work (Count)",
+                 shape = "At Work (Count)")) + 
+  geom_point(aes(y = n_leave,
+                 color = "Leaving Work (Count)",
+                 shape = "Leaving Work (Count)")) +
+  scale_y_continuous(
+    sec.axis = sec_axis(~./20000, name = "Proportion Leaving Work")) + 
+  scale_x_continuous(name = waiver(),
+                     breaks = seq(1940,2000,by = 10),
+                     labels = seq(1940,2000,by = 10)) +
+  labs(color = "", shape = "") + 
+  theme(legend.position = c(0.2,0.95)) + 
+  geom_vline(xintercept = 1981,
+             lty = 3,
+             col = 'darkgray') + 
+  annotate(geom = "text",
+           x = 1982,
+           y = 12000,
+           label = "End of Enrollment",
+           size = 2, col = "darkgray",
+           hjust = "left")
+@
+
 \FloatBarrier
 
-<<barplot_cohort-tenure, echo = FALSE, fig.cap = "The number of person-years observed by calendar year for members in the cohort.">>=
-cohort_long %>%
-  ggplot(aes(x = floor(cal_obs))) + 
-  geom_bar() + 
+\newpage
+
+<<points_incidence-rates-by-cal-year, echo = FALSE, fig.height = 4.5, fig.cap = "The estimated incidence rates of overdose and suicide by calendar time in the full UAW-GM cohort.">>=
+denom <- cohort_long %>%
+  group_by(calyear = cut(floor(cal_obs), breaks = c(1940, seq(1950,2015,by = 5)))) %>%
+  summarize(n_py = n_distinct(STUDYNO))
+
+suicides <- cohort %>%
+  filter(suicide == 1) %>%
+  group_by(calyear = cut(floor(yod09), breaks = c(1940, seq(1950,2015,by = 5)))) %>%
+  summarize(n_suicide = n_distinct(STUDYNO))
+
+overdoses <- cohort %>%
+  filter(poison == 1) %>%
+  group_by(calyear = cut(floor(yod09), breaks = c(1940, seq(1950,2015,by = 5)))) %>%
+  summarize(n_od = n_distinct(STUDYNO))
+
+temp <- full_join(full_join(denom, suicides, by = "calyear"), overdoses, by = "calyear") %>%
+  replace(is.na(.), 0) 
+
+temp_long <- temp %>%
+  gather("type", "count", 3:4) %>%
+  mutate(rate = count/n_py) %>%
+  mutate(lb = exp(log(rate) - 1.96*sqrt((1 - log(rate))/n_py)),
+         ub = exp(log(rate) + 1.96*sqrt((1 - log(rate))/n_py)))
+
+temp_long %>% 
+  filter(calyear != "(1940,1950]") %>%
+  ggplot(aes(x = calyear, y = rate*10000, col = type, shape = type)) + 
+  geom_point(size = 3) + 
+  geom_line(aes(group = type), lty = 2, alpha = 0.5, lwd = 1) + 
+  scale_color_manual(NULL, 
+                     values = c("n_suicide" = swatch()[2], 
+                                "n_od" = swatch()[4]),
+                     labels = c("overdose", "suicide")) +
+  scale_shape_manual(NULL, 
+                     values = c("n_suicide" = 3, 
+                                "n_od" = 4),
+                     labels = c("overdose", "suicide")) +
   xlab("Calendar Year") + 
-  ylab("Person-Years Observed")
+  ylab("Suicide and Overdose Rate\nper 10,000 person-years") + 
+  scale_y_continuous(name = waiver(),
+                     breaks = seq(0,15, by = 2.5),
+                     labels = seq(0,15, by = 2.5)) + 
+#  geom_segment(aes(x = calyear, xend = calyear, y = lb*10000, yend = ub*10000)) + 
+  theme(axis.text.x = element_text(angle = -45, hjust = 0, vjust = 0))
+  
+@
+
+\FloatBarrier
+
+\newpage
+
+\FloatBarrier
+
+<<points_incidence-rates-by-cal-year-age, echo = FALSE, fig.height = 4.5, fig.cap = "The estimated combined incidence rates of overdose and suicide by calendar time and age in the full UAW-GM cohort.">>=
+denom <- cohort_long %>%
+  filter(age_obs > 20, age_obs <= 75) %>%
+  group_by(calyear = cut(floor(cal_obs), breaks = c(1940, seq(1950,2015,by = 5))),
+           agecat = cut(floor(age_obs), breaks = c(20,35,45,55,65,75))) %>%
+  summarize(n_py = n_distinct(STUDYNO))
+
+sim <- cohort %>%
+  filter(suicide == 1 | poison == 1) %>%
+  filter(floor(yod09 - YOB) > 20, floor(yod09 - YOB) <= 75) %>%
+  group_by(calyear = cut(floor(yod09), breaks = c(1940, seq(1950,2015,by = 5))),
+           agecat = cut(floor(yod09 - YOB), breaks = c(20,35,45,55,65,75))) %>%
+  summarize(n_sim = n_distinct(STUDYNO))
+
+temp <- full_join(denom, sim, by = c("calyear", "agecat")) %>%
+  replace(is.na(.), 0) %>%
+  mutate(rate = n_sim/n_py)
+
+
+fig3a <- temp %>%
+  ungroup() %>%
+  filter(calyear != "(1940,1950]",
+         agecat != "(65,75]") %>%
+  ggplot(aes(x = calyear, y = rate*10000, col = agecat)) + 
+  geom_line(aes(group = agecat)) + 
+  scale_color_discrete("Age Category") + 
+  #geom_point()
+  #geom_ridgeline(aes(), alpha = 0.3) + 
+  #geom_ridgeline_gradient() + 
+  #scale_fill_viridis_c() + 
+  #guides(fill = FALSE) + 
+  #geom_smooth(formula = y ~ x, aes(group = agecat), se = FALSE) + 
+  theme(axis.text.x = element_text(angle = -45,hjust = 0, vjust = 0.3)) + 
+  xlab("Calendar Year") + 
+  ylab("Self-Injury Mortality Rate\nper 10,000 person-years")
+@
+
+\setcounter{figure}{2} 
+<<tile_sim-by-age-calyear, echo = FALSE, fig.height = 4.5, fig.width = 7.5, fig.cap = "The estimated combined incidence rates of overdose and suicide by calendar time and age in the full UAW-GM cohort.">>=
+
+fig3b <- temp %>%
+  ungroup() %>%
+  filter(calyear != "(1940,1950]",
+         agecat != "(65,75]") %>%
+  ggplot(aes(x = calyear, y = agecat, fill = rate*10000)) + 
+  geom_tile(color = "white") + 
+  theme(axis.text.x = element_text(angle = -45,hjust = 0, vjust = 0.3)) + 
+  # scale_fill_gradientn(name = "Self-Injury Mortality Rate\nper 10,000 person-years",
+  #                     colours = rainbow(5),
+  #                     trans = "reverse")
+  #scale_fill_viridis_c()
+  scale_fill_gradient(name = "Incidence Rate\nper 10,000\nperson-years",
+                      low = "white",
+                      high = swatch()[4]) +
+  xlab("Calendar Year") + 
+  ylab("Age Category") + 
+  geom_text(aes(x = calyear, y = agecat, label = round(rate*10000, 1))) #+ 
+   # geom_fit_text(aes(label = round(rate*10000, 1)), 
+   #               contrast = TRUE, grow = FALSE)
+  
+@
+
+\setcounter{figure}{2}
+
+<<bar_sim-by-age-calyear, echo = FALSE, fig.height = 4.5, fig.width = 7.5, fig.cap = "The estimated combined incidence rates of overdose and suicide by calendar time and age in the full UAW-GM cohort.">>=
+denom <- cohort_long %>%
+  filter(age_obs > 20, age_obs <= 75) %>%
+  group_by(calyear = cut(floor(cal_obs), breaks = c(1940, seq(1950,2015,by = 5))),
+           agecat = cut(floor(age_obs), breaks = c(20,35,45,55,65,75)),
+           .drop = FALSE) %>%
+  summarize(n_py = n_distinct(STUDYNO))
+
+sim <- cohort %>%
+  filter(suicide == 1 | poison == 1) %>%
+  filter(floor(yod09 - YOB) > 20, floor(yod09 - YOB) <= 75) %>%
+  group_by(calyear = cut(floor(yod09), breaks = c(1940, seq(1950,2015,by = 5))),
+           agecat = cut(floor(yod09 - YOB), breaks = c(20,35,45,55,65,75)),
+           .drop = FALSE) %>%
+  summarize(n_sim = n_distinct(STUDYNO))
+
+temp <- full_join(denom, sim, by = c("calyear", "agecat")) %>%
+  replace(is.na(.), 0) %>%
+  mutate(rate = n_sim/n_py) %>%
+  replace(is.na(.), 0)
+
+fig3c <- temp %>%
+  ungroup() %>%
+  filter(calyear != "(1940,1950]",
+         agecat != "(65,75]") %>%
+  ggplot(aes(x = calyear, y = rate*10000, fill = agecat, col = agecat)) + 
+  geom_bar(stat = "identity", position = position_dodge(0.65), width = 0.5) + 
+  theme(axis.text.x = element_text(angle = -45,hjust = 0, vjust = 0.3)) + 
+  xlab("Calendar Year") + 
+  ylab("Self-Injury Mortality Rate\nper 10,000 person-years") +
+  scale_fill_discrete("Age Category") + 
+  scale_color_discrete("Age Category")
+@
+
+\setcounter{figure}{2}
+
+<<lollipop_sim-by-age-calyear, echo = FALSE, fig.height = 4.5, fig.width = 7.5, fig.cap = "The estimated combined incidence rates of overdose and suicide by calendar time and age in the full UAW-GM cohort.">>=
+fig3d <- temp %>%
+  ungroup() %>%
+  filter(calyear != "(1940,1950]" ,
+         agecat != "(65,75]") %>%
+  ggplot(aes(x = calyear, y = rate*10000, col = agecat)) + 
+  #geom_bar(stat = "identity", position = position_dodge(0.65), width = 0.5) + 
+  geom_point(position = position_dodge(0.65), size = 3) +
+  geom_linerange(aes(ymin = 0, ymax = rate*10000, col = agecat), position = position_dodge(0.65) ) + 
+  theme(axis.text.x = element_text(angle = -45,hjust = 0, vjust = 0.3)) + 
+  xlab("Calendar Year") + 
+  ylab("Self-Injury Mortality Rate\nper 10,000 person-years") +
+  scale_color_discrete("Age Category") + 
+  scale_shape_discrete("Age Category")
+@
+
+\setcounter{figure}{2}
+
+<<line_monochrome_sim-by-age-calyear, echo = FALSE, fig.height = 4.5, fig.width = 7.5, fig.cap = "The estimated combined incidence rates of overdose and suicide by calendar time and age in the full UAW-GM cohort.">>=
+fig3e <- temp %>%
+  ungroup() %>%
+  filter(calyear != "(1940,1950]",
+         agecat != "(65,75]") %>%
+  ggplot(aes(x = calyear, y = rate*10000, linetype = agecat, group = agecat)) + 
+  #geom_bar(stat = "identity", position = position_dodge(0.65), width = 0.5) + 
+  geom_line(lwd = 1) + 
+  theme(axis.text.x = element_text(angle = -45,hjust = 0, vjust = 0.3)) + 
+  xlab("Calendar Year") + 
+  ylab("Self-Injury Mortality Rate\nper 10,000 person-years") 
+@
+
+
+
+
+\FloatBarrier
+
+<<options_sim-by-age-calyear, echo = FALSE, fig.height = 9.5, fig.width = 7.5, fig.cap = "The estimated combined incidence rates of overdose and suicide by calendar time and age in the full UAW-GM cohort.">>=
+library(gridExtra)
+grid.arrange(fig3a,
+             fig3e,
+             fig3b)#,
+             #fig3c)#,
+             # fig3d,
+             # fig3e)
 
 @
 
 
+\setcounter{figure}{2}
+
+<<options2_sim-by-age-calyear, echo = FALSE, fig.height = 9.5, fig.width = 7.5, fig.cap = "The estimated combined incidence rates of overdose and suicide by calendar time and age in the full UAW-GM cohort.">>=
+library(gridExtra)
+grid.arrange(
+  # fig3a,
+  #            fig3b,
+  fig3c,
+             fig3d)#,
+             #fig3e)
+
+@
+
 \FloatBarrier
+
+
+
+% \section{Additional Plots}
+% 
+% 
+% \FloatBarrier
+% 
+% <<barplot_cohort-tenure, echo = FALSE, fig.cap = "The number of person-years observed by calendar year for members in the cohort.">>=
+% cohort_long %>%
+%   ggplot(aes(x = floor(cal_obs))) + 
+%   geom_bar() + 
+%   xlab("Calendar Year") + 
+%   ylab("Person-Years Observed")
+% 
+% @
+% 
+% 
+% \FloatBarrier
+%
 
 
 \end{document}

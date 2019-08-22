@@ -60,7 +60,7 @@ employment_plot_dta <- employment %>%
   mutate(rate = n_leave/n_py) %>%
   mutate(PLANT = ifelse(PLANT == 1, "Plant 1", #  - Detroit
                         ifelse(PLANT == 2, "Plant 2", # - Ypsilanti
-                               "Plant 3 "))) %>% # - Saginaw
+                               "Plant 3"))) %>% # - Saginaw
   filter(cal_obs < 1995) 
 
 employment_plot_dta %>% 
@@ -94,6 +94,69 @@ employment_plot_dta %>%
            label = "End of Enrollment",
            size = 2, col = "darkgray",
            hjust = "left")
+
+
+
+# Not stratifying on plant
+
+employment_plot_dta <- employment %>%
+  ungroup() %>%
+  #filter(PLANT != 9) %>%
+  group_by(cal_obs) %>%
+  summarize(n_py = n_distinct(STUDYNO),
+            n_leave = sum(leaving_work)) %>%
+  mutate(rate = n_leave/n_py) %>%
+  # mutate(PLANT = ifelse(PLANT == 1, "Plant 1", #  - Detroit
+  #                       ifelse(PLANT == 2, "Plant 2", # - Ypsilanti
+  #                              "Plant 3"))) %>% # - Saginaw
+  filter(cal_obs < 1995) 
+@
+
+<<point-line-plot_employment-by-cal_v2, echo = FALSE>>=
+
+employment_plot_dta %>% 
+  ggplot(aes(x = cal_obs)) +
+  xlab("Calendar Year") +
+  ylab("UAW-GM Employees\n Leaving Work, %") +
+  #facet_wrap(~PLANT, ncol = 1) + 
+  geom_smooth(aes(y = rate*100), 
+              alpha = 0.2, 
+              size = 0.5, 
+              col = swatch()[5],
+              fill = swatch()[5],
+              lty = 2) + 
+  geom_line(aes(y = rate*100), 
+            size = 1) + 
+  # geom_point(aes(y = n_py,
+  #                color = "At Work (Count)")) + 
+  # geom_point(aes(y = n_leave,
+  #                color = "Leaving Work (Count)",
+  #                shape = "Leaving Work (Count)")) +
+  # scale_y_continuous(
+  #   sec.axis = sec_axis(~./20000, name = "Proportion Leaving Work")) +
+  scale_x_continuous(name = waiver(),
+                     breaks = seq(1940,2000,by = 10),
+                     labels = seq(1940,2000,by = 10)) +
+  labs(color = "", shape = "") + 
+  theme(legend.position = c(0.2,0.95),
+        text = element_text(family = "serif")) + 
+  geom_vline(xintercept = 1981,
+             lty = 3,
+             col = 'darkgray') + 
+  ylim(0,15)+
+  annotate(geom = "text",
+           family = "serif",
+           x = 1980,
+           y = 13,
+           label = "End of Enrollment",
+           size = 3, col = "darkgray",
+           hjust = "right") 
+ggsave(here("graphs","point-line-plot_employment-by-cal_v2.png"),
+       device = "png",
+       width = 6,
+       height = 4,
+       units = "in")
+
 @
 
 \FloatBarrier
@@ -126,6 +189,8 @@ temp_long <- temp %>%
 
 temp_long %>% 
   filter(calyear != "(1940,1950]") %>%
+  # mutate(lb10000 = 10000*,
+  #        ub10000 = qpois(0.975, rate*10000)) %>%
   ggplot(aes(x = calyear, y = rate*10000, col = type, shape = type)) + 
   geom_point(size = 3) + 
   geom_line(aes(group = type), lty = 2, alpha = 0.5, lwd = 1) + 
@@ -134,18 +199,36 @@ temp_long %>%
                                 "n_od" = swatch()[4]),
                      labels = c("overdose", "suicide")) +
   scale_shape_manual(NULL, 
-                     values = c("n_suicide" = 3, 
-                                "n_od" = 4),
+                     values = c("n_suicide" = 19, 
+                                "n_od" = 17),
                      labels = c("overdose", "suicide")) +
   xlab("Calendar Year") + 
   ylab("Suicide and Overdose Rate\nper 10,000 person-years") + 
   scale_y_continuous(name = waiver(),
                      breaks = seq(0,15, by = 2.5),
                      labels = seq(0,15, by = 2.5)) + 
-#  geom_segment(aes(x = calyear, xend = calyear, y = lb*10000, yend = ub*10000)) + 
+  #geom_segment(aes(x = calyear, xend = calyear, y = lb10000, yend = ub10000)) + 
   theme(axis.text.x = element_text(angle = -45, hjust = 0, vjust = 0))
-  
 @
+
+<<echo = FALSE>>=
+# new %>%
+#   ggplot(aes(x = age, y = rate*10000)) +
+#   geom_segment(aes(x = age, xend = age, y = 0, yend = rate*10000 - 0.25), alpha = 0.2) +  
+#   geom_point(aes(size = n_py)) +
+#   ylab("Suicide and Overdose Rate\nper 10,000 person-years") +
+#   xlab("Age Category") + 
+#   ylim(0,25) + 
+#   theme(axis.text.x = element_text(angle = 315, hjust = 0)) + 
+#   scale_size("Number of Person-Years\nObserved", breaks = waiver(), labels = waiver()) + 
+#   geom_text(aes(label = n_event), vjust = -1.25, size = 3)#paste0(n_event, "/", n_py)), vjust = -1)
+# ggsave(filename = here("graphs", "point_suicide-overdose-rate_by-age_v2.png"),
+#        device = "png",
+#        width = 8,
+#        height = 4.5,
+#        units = "in")
+@
+
 
 \FloatBarrier
 
@@ -275,13 +358,19 @@ fig3d <- temp %>%
 fig3e <- temp %>%
   ungroup() %>%
   filter(calyear != "(1940,1950]",
-         agecat != "(65,75]") %>%
+         agecat != "(65,75]",
+         agecat != "(20,35]") %>%
   ggplot(aes(x = calyear, y = rate*10000, linetype = agecat, group = agecat)) + 
-  #geom_bar(stat = "identity", position = position_dodge(0.65), width = 0.5) + 
-  geom_line(lwd = 1) + 
+  #geom_bar(stat = "identity", position = position_dodge(0.65), width = 0.5) +
+  geom_line(lwd = 1, aes(col = agecat)) + 
+  scale_color_manual("Age Category",
+                       values = c(swatch()[5] , swatch()[2], swatch()[5])) +
+  scale_linetype("Age Category") + 
   theme(axis.text.x = element_text(angle = -45,hjust = 0, vjust = 0.3)) + 
   xlab("Calendar Year") + 
   ylab("Self-Injury Mortality Rate\nper 10,000 person-years") 
+
+fig3e
 @
 
 

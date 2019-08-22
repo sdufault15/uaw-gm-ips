@@ -16,6 +16,8 @@
 
 \maketitle
 
+\section{Full Cohort}
+
 <<data, echo = FALSE, include = FALSE>>=
 library(tidyverse)
 #install.packages("qwraps2", repo = "http://cran.rstudio.com")
@@ -25,6 +27,9 @@ box_auth()
 
 cohort <- box_read(485768272681) # need the long dataset for mean age ...
 cohort_long <- box_read(488427532080) # the long dataset
+
+cohort <- cohort %>%
+  mutate(cohort_tenure = YOUT16 - yrin16)
 @
 
 <<gendesc, echo = FALSE>>=
@@ -56,7 +61,7 @@ cohort_long <- box_read(488427532080) # the long dataset
 
 gendesc_2 <- 
   list("Number of Person-Years" = 
-         list("Count" = ~sum(tenure)),
+         list("Count" = ~sum(floor(cohort_tenure))),
        "Employment status by end of followup" = 
          list("Left work" = ~dplyr::n_distinct(STUDYNO[YOUT16 < 1995]),
               "Unknown/Still at Work" = ~dplyr::n_distinct(STUDYNO[YOUT16 >= 1995])),
@@ -231,5 +236,241 @@ cbind(overall2, suicide2, overdose2)
 \item[1] Age for the overall cohort is taken as the person-year mean. Age for suicide and overdose cohorts denotes age at time of event.
 \end{tablenotes}
 \end{threeparttable}
+
+\section{IPS Cohort}
+
+<<echo = FALSE>>=
+# General Summaries
+dta_ips <- cohort %>% 
+  ungroup() %>% 
+  filter(yrin16 - YOB < 64, YOUT16 - YOB > 30, 1994-YOB >= 64, YOUT16 != 1995) # age range of interest for individuals who
+dta_ips_long <- cohort_long %>% 
+  ungroup() %>%
+  filter(yrin16 - YOB < 64, YOUT16 - YOB > 30, 1994-YOB >= 64, YOUT16 != 1995) # age range of interest for individuals who have reached the max age by the end of followup
+
+
+dta_ips_long <- dta_ips_long %>% 
+  filter(between(age_obs, 30, 64)) # MAY HAVE TO REMOVE INDIVIDUALS WHO DO NOT HIT AGE 65 BEFORE 1995??
+
+dta_ips_long %>%
+  group_by(age_obs) %>%
+  summarize(n = n_distinct(STUDYNO))
+
+dta_ips_long %>%
+  group_by(suicide, poison) %>%
+  summarize(n = n_distinct(STUDYNO))
+@
+
+<<echo = FALSE>>=
+ips_overall <- qwraps2::summary_table(dta_ips, gendesc_2)
+
+`Self-Injury Cases` <- dta_ips %>%
+  filter(suicide == 1 | poison == 1) %>%
+  ungroup()
+suicide <- qwraps2::summary_table(`Self-Injury Cases`, gendesc_2)
+
+cbind(ips_overall, suicide)
+@
+
+<<echo = FALSE>>=
+age <- dta_ips_long %>%
+  ungroup() %>%
+  summarize(mean = mean(age_obs),
+            sd = sd(age_obs))
+
+age_si <- dta_ips %>%
+  filter(suicide == 1 | poison == 1) %>%
+  summarize(mean = mean(yod09-YOB),
+            sd = sd(yod09-YOB))
+
+@
+
+<<echo = FALSE, eval= FALSE>>=
+data.frame(overall.age = c(age), 
+           suicide.age.at.event = c(age_si))
+@
+
+<<echo = FALSE>>=
+overall2 <- summary_table(dta_ips_long, gendesc_3)
+
+si_long <- dta_ips_long %>% 
+  filter(suicide == 1 | poison == 1)
+suicide2 <- summary_table(si_long, gendesc_3)
+
+cbind(overall2, suicide2)
+@
+
+
+\begin{threeparttable}
+\caption{Characteristics of the IPS overall cohort, suicide cases, and overdose cases, UAW-GM cohort 1941-2015}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+ & Full Cohort & Self-Injury Cases \\
+\midrule
+\bf{Number of subjects} & 13,404 & 113 \\ 
+\bf{Number of person-years} & 326,916 & 2,920\\
+\bf{Employment status by end of followup} & ~ & ~\\
+~~ Left work & 13404 & 113\\
+~~ Unknown/Still at Work & 0 & 0\\
+\bf{Age\tnote{1}} & ~ & ~ \\
+~~ mean (SD) & 49.29 (9.22) & 62.05 (13.95) \\
+\bf{Race} & ~ & ~\\
+~~ White & 11,225 (83.74\%) & 101 (89.38\%)\\
+~~ Blacks & 2,179 (16.26\%) & 12 (10.62\%)\\
+\bf{Sex} & ~ & ~\\
+~~ Male & 12,042 (89.84\%) & 110 (97.35\%)\\
+~~ Female & 1,362 (10.16\%) & 3 (2.65\%)\\
+\bf{Plant (person-years)} & ~ & ~\\
+~~ Plant 1 & 95,365 (29.17\%) & 401 (17.52\%)\\
+~~ Plant 2 & 168,961 (51.68\%) & 1,270 (55.48\%)\\
+~~ Plant 3 & 61,654 (18.86\%) & 580 (25.34\%)\\
+\bf{Years in Cohort} & ~ & ~\\
+~~ mean (SD) & 15.51 (9.68) & 14.49 (9.51)\\
+\bf{Birth year} & ~ & ~\\
+~~ min & 1880 & 1894\\
+~~ max & 1930 & 1929\\
+~~ mean & 1916 & 1918\\
+\bf{Hire year} & ~ & ~\\
+~~ min & 1938 & 1940\\
+~~ max & 1985 & 1976\\
+~~ mean & 1952 & 1952\\
+\bf{Year of Leaving Work} & ~ & ~\\
+~~ min & 1943 & 1946\\
+~~ max & 1994 & 1993\\
+~~ mean & 1970 & 1968\\
+~~ median & 1972 & 1967\\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}
+\footnotesize
+\item Suicide was determined by ICD-9 codes E950-E959 and ICD-10 codes X60-X84, Y87, and U03. Overdose was determined by ICD-9 codes E850-E858, E980.0-E980.5 (undetermined intent) and ICD-10 codes X40-X44 and Y10-Y14.
+\item[1] Age for the overall cohort is taken as the person-year mean. Age for suicide and overdose cohorts denotes age at time of event.
+\end{tablenotes}
+\end{threeparttable}
+
+\section{IPS Cohort Take 2}
+
+<<echo = FALSE>>=
+# General Summaries
+# dta_ips <- cohort %>% 
+#   ungroup() %>% 
+#   filter(yrin16 - YOB < 64, YOUT16 - YOB > 30, YOUT16 != 1995) # age range of interest for individuals who
+load(here("data","2019-08-09_ips-data-with-work.RData"))
+ids <- unique(dta_ips$STUDYNO)
+
+dta1 <- cohort_long %>% 
+  filter(STUDYNO %in% ids)
+
+dta2 <- cohort %>%
+  ungroup() %>%
+  filter(STUDYNO %in% ids)
+
+
+# dta_ips_long <- dta_ips_long %>% 
+#   filter(between(age_obs, 30, 64)) # MAY HAVE TO REMOVE INDIVIDUALS WHO DO NOT HIT AGE 65 BEFORE 1995??
+
+dta_ips_long %>%
+  group_by(age_obs) %>%
+  summarize(n = n_distinct(STUDYNO))
+
+dta_ips_long %>%
+  group_by(cal_obs) %>%
+  summarize(n = n_distinct(STUDYNO))
+
+dta_ips_long %>%
+  group_by(floor(YOUT16)) %>%
+  summarize(n = n_distinct(STUDYNO))
+
+dta_ips_long %>%
+  group_by(suicide, poison) %>%
+  summarize(n = n_distinct(STUDYNO))
+@
+
+<<echo = FALSE>>=
+ips_overall <- qwraps2::summary_table(dta2, gendesc_2)
+
+`Self-Injury Cases` <- dta2 %>%
+  filter(suicide == 1 | poison == 1) %>%
+  ungroup()
+suicide <- qwraps2::summary_table(`Self-Injury Cases`, gendesc_2)
+
+cbind(ips_overall, suicide)
+@
+
+<<echo = FALSE>>=
+age <- dta_ips_long %>%
+  ungroup() %>%
+  summarize(mean = mean(age_obs),
+            sd = sd(age_obs))
+
+age_si <- dta_ips %>%
+  filter(suicide == 1 | poison == 1) %>%
+  summarize(mean = mean(yod09-YOB),
+            sd = sd(yod09-YOB))
+
+@
+
+<<echo = FALSE, eval= FALSE>>=
+data.frame(overall.age = c(age), 
+           suicide.age.at.event = c(age_si))
+@
+
+<<echo = FALSE>>=
+overall2 <- summary_table(dta_ips_long, gendesc_3)
+
+si_long <- dta_ips_long %>% 
+  filter(suicide == 1 | poison == 1)
+suicide2 <- summary_table(si_long, gendesc_3)
+
+cbind(overall2, suicide2)
+
+save(dta_ips_long, file = here("data", "2019-08-04_ips-data_no-work-hx.RData"))
+@
+
+\begin{threeparttable}
+\caption{Characteristics of the IPS overall cohort, suicide cases, and overdose cases, UAW-GM cohort 1985-1994}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+ & Full Cohort & Self-Injury Cases \\
+\midrule
+\bf{Number of subjects} & 5,427 & 42 \\ 
+\bf{Number of person-years} & 52,353 & 321\\
+\bf{Plant (person-years)} & ~ & ~\\
+~~ Plant 1 & 20,953 (40.02\%) & 98 (30.53\%)\\
+~~ Plant 2 & 13,702 (26.17\%) & 119 (37.07\%)\\
+~~ Plant 3 & 17,608 (33.63\%) & 104 (32.40\%)\\
+\bf{Years in Cohort} & ~ & ~\\
+~~ mean (SD) & 20.30 (8.30) & 19.12 (8.39)\\
+\bf{Employment status by end of followup} & ~ & ~\\
+~~ Left work & 5427 & 42\\
+~~ Unknown/Still at Work & 0 & 0\\
+\bf{Race} & ~ & ~\\
+~~ White & 3,785 (69.74\%) & 31 (73.81\%)\\
+~~ Blacks & 1,642 (30.26\%) & 11 (26.19\%)\\
+\bf{Sex} & ~ & ~\\
+~~ Male & 4,620 (85.13\%) & 40 (95.24\%)\\
+~~ Female & 807 (14.87\%) & 2 (4.76\%)\\
+\bf{Birth year} & ~ & ~\\
+~~ min & 1930 & 1930\\
+~~ max & 1954 & 1954\\
+~~ mean & 1941 & 1945\\
+\bf{Hire year} & ~ & ~\\
+~~ min & 1948 & 1951\\
+~~ max & 1987 & 1979\\
+~~ mean & 1967 & 1969\\
+\bf{Year of Leaving Work} & ~ & ~\\
+~~ min & 1985 & 1985\\
+~~ max & 1994 & 1994\\
+~~ mean & 1991 & 1990\\
+~~ median & 1992 & 1991\\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}
+\footnotesize
+\item Suicide was determined by ICD-9 codes E950-E959 and ICD-10 codes X60-X84, Y87, and U03. Overdose was determined by ICD-9 codes E850-E858, E980.0-E980.5 (undetermined intent) and ICD-10 codes X40-X44 and Y10-Y14.
+\item[1] Age for the overall cohort is taken as the person-year mean. Age for suicide and overdose cohorts denotes age at time of event.
+\end{tablenotes}
+\end{threeparttable}
+
 
 \end{document}

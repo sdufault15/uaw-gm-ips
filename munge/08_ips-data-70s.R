@@ -59,24 +59,25 @@ save(dta_person_year_full_1970s, file = here("data","2019-08-22_full-person-year
 # Drop person-time before 1970
 load(here("data","2019-08-22_full-person-year-data-1970s.RData"))
 jj <- julian(as.POSIXct("1970-01-01"), origin = as.POSIXct("1960-01-01"))[[1]]
-dta_person_year <- dta_person_year %>%
+dta_person_year_full_1970s <- dta_person_year_full_1970s %>%
   filter(origin >= jj)
 
 ###############################################
 # Combine time-varying and fixed data
 ###############################################
 
-n_distinct(dta_person_year$STUDYNO)
+n_distinct(dta_person_year_full_1970s$STUDYNO)
 n_distinct(dta_ips_long$STUDYNO)
 
-dta_person_year <- dta_person_year %>%
+dta_person_year_full_1970s <- dta_person_year_full_1970s %>%
   mutate(cal_obs = date.mdy(origin)$year)
-dta_ips <- left_join(dta_person_year, dta_ips_long, by = c("STUDYNO", "cal_obs"))
-save(dta_ips, file = here("data","2019-08-09_ips-data-with-work.RData"))
+dta_ips <- left_join(dta_person_year_full_1970s, dta_ips_long, by = c("STUDYNO", "cal_obs"))
+save(dta_ips, file = here("data","2019-08-22_ips-data-with-work.RData"))
 
 ###############################################
 # Combine time-varying and fixed data
 ###############################################
+load(here("data","2019-08-22_ips-data-with-work.RData"))
 
 dta_ips <- dta_ips %>%
   rowwise() %>%
@@ -89,11 +90,15 @@ dta_ips <- dta_ips %>%
          prop.days.assembly = ndays.assembly/sum(ndays.mach, ndays.assembly, ndays.off),
          prop.days.off = ndays.off/sum(ndays.mach, ndays.assembly, ndays.off)) %>%
   # Identify pension eligibility - primarily based off of the 30-and-out rule
-  mutate(pension.eligibility = case_when(yearWork >= 30 ~ "eligible",
-                                         TRUE ~ "ineligible"))
+  mutate(pension.eligibility = case_when(yearWork >= 30 ~ 1,
+                                         TRUE ~ 0))
+
+dta_ips <- dta_ips %>%
+  group_by(STUDYNO) %>%
+  mutate(cumulative_days_off = cumsum(ndays.off))
 
 ###############################################
-# Add Zero Rows
+# Duplicate last entries for those without followup
 ###############################################
 
 dta_ips <- dta_ips %>%
@@ -113,20 +118,65 @@ lessthan26 <- lessthan26 %>%
   expandRows("need", count.is.col = TRUE, drop = TRUE)
 
 lessthan26 <- lessthan26 %>%
-  dplyr::select(-rownumber, -max) %>%
-  mutate(prop.days.assembly = 0,
-         prop.days.mach = 0,
-         prop.days.off = 0,
-         prop.days.gan = 0,
-         prop.days.han = 0,
-         prop.days.san = 0,
-         ndays.mach = 0,
-         ndays.assembly = 0, 
-         ndays.off = 0,
-         ndays.SAN = 0,
-         ndays.GAN = 0,
-         ndays.HAN = 0)
+  group_by(STUDYNO) %>%
+  mutate(cal_obs = min(cal_obs) + row_number())
 
 lessthan26 <- lessthan26 %>%
+  select(-max)
+
+# Merge back together
+dta_ips <- bind_rows(dta_ips, lessthan26) %>%
+  arrange(STUDYNO, cal_obs)
+
+dta_ips <- dta_ips %>%
   group_by(STUDYNO) %>%
-  mutate(year_obs = min(year_obs) + row_number())
+  mutate(rownumber = row_number())
+
+# Confirm there are 26 rows for all people
+
+dta_ips %>%
+  #filter(rownumber == max(rownumber)) %>%
+  group_by(rownumber) %>%
+  summarize(n = n_distinct(STUDYNO)) %>%
+  View()
+
+dta_ips <- dta_ips %>%
+  mutate(A = ifelse(cal_obs >= floor(YOUT16) & YOUT16 != 1995, 1, 0))
+
+save(dta_ips, file = here("data","2019-08-22_ips-data-with-work-final.RData"))
+
+load(here("data","2019-08-22_ips-data-with-work-final.RData"))
+
+###############
+# IPS
+###############
+
+lackingrecords <- dta_ips %>%
+  filter(is.na(A)) %>%
+  select(STUDYNO) %>% 
+  distinct() %>%
+  unlist()
+
+dta_ips <- dta_ips %>% 
+  filter(!STUDYNO %in% lackingrecords)
+
+
+x.trt <- dta_ips %>% select(STUDYNO, YOB, YIN16, race, sex, 
+                            year_obs, age_obs, 
+                            prop.days.gan, prop.days.han, prop.days.san,
+                            prop.days.mach, prop.days.assembly, prop.days.off,
+                            pension.eligibility,
+                            cumulative_days_off) %>% data.matrix()
+x.out <- dta_ips %>% select(STUDYNO, YOB, race, sex, age_obs) %>% data.matrix()
+time <- dta_ips %>% ungroup() %>% select(cal_obs) %>% unlist()
+a <- dta_ips %>% ungroup() %>% select(A) %>%  unlist()
+#y <- dta.ips %>% select(STUDYNO, suicide) %>% distinct() %>% select(suicide) %>% unlist() # just suicides
+y <- dta_ips %>% mutate(SIM = ifelse(suicide == 1 | poison == 1, 1, 0)) %>% select(STUDYNO, SIM) %>% distinct() %>% ungroup() %>% select(SIM) %>% unlist()
+id <- dta_ips %>% select(STUDYNO) %>% unlist()
+
+dim(x.trt); dim(x.out)
+length(time); length(a); length(y) ; length(id)
+
+d.seq <- c(seq(0.1,0.9, length.out = 9), seq(1,5, length.out = 5))
+ipsi.res <- ipsi(y,a, x.trt,x.out, time, id, d.seq)
+

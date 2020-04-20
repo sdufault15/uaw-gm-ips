@@ -7,7 +7,8 @@ library(splitstackshape)
 library(date)
 
 box_auth()
-dta <- box_read(291022061422) # "raw" cohort file
+dta <- box_read(655863812176) # "raw" cohort file
+
 
 source(here("munge", "01_administrative.R"))
 source(here("munge", "02_subsetting-cohort.R"))

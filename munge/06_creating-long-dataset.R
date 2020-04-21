@@ -2,8 +2,6 @@
 # This identifies the person-years that an individual is under
 # observation in the cohort
 
-cohort <- box_read(485768272681)
-
 cohort_long <- cohort %>%
     mutate(tenure = ceiling(yod09 - yrin16)) %>%
     expandRows("tenure", count.is.col = TRUE, drop = FALSE) %>%

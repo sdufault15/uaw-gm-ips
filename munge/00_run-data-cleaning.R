@@ -13,7 +13,7 @@ dta <- box_read(655863812176) # "raw" cohort file
 source(here("munge", "01_administrative.R"))
 source(here("munge", "02_subsetting-cohort.R"))
 source(here("munge", "03_demographic-covariate-cleaning.R"))
-source(here("munge", "04_incorporating-new-ndi.R"))
+#source(here("munge", "04_incorporating-new-ndi.R"))
 source(here("munge", "05_incorporating-suicide-overdose-codes.R"))
 source(here("munge", "06_creating-long-dataset.R")) # just demographics, no work history
 

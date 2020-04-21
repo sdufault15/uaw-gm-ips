@@ -4,11 +4,6 @@
 # July 2, 2019
 #############
 
-library(boxr)
-library(tidyverse)
-
-box_auth() # "signing in"
-cohort <- box_read(484669026313) # reading in the data file "[last-modified-date]_cohort-covariates.RData"
 
 ###########################################
 # Data Processing

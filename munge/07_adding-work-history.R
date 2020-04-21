@@ -38,6 +38,9 @@ allplants <- bind_rows(gan = gan38, han = han38, san = san38, .id = "Plant") %>%
          dayOUT = date.mdy(DATEOUT)$day,
          yearOUT = date.mdy(DATEOUT)$year)
 
+# Collapse duplicated rows
+allplants <- distinct(allplants)
+
 allplants <- full_join(allplants, cohort, by = "STUDYNO") %>% 
   arrange(STUDYNO, DATEOUT) 
 allplants <- allplants %>% group_by(STUDYNO) %>% 
@@ -83,6 +86,26 @@ final.record.off.censored <- allplants.nocens %>%
          yearOUT - yearIN >= 11) %>% 
   select(STUDYNO) %>% 
   distinct()
+
+last.record.off.datein.equals.dateout <- allplants.nocens %>% 
+  filter(t == maxT, 
+         #DATEOUT != DATEIN, 
+         HISTCODE %in% c("OFF", "MSS", "MD", "SR"), 
+         DATEIN == DATEOUT) %>% 
+  select(STUDYNO) %>% 
+  distinct()
+
+penultimate.record.off.datein.equals.dateout <- allplants.nocens %>% 
+  filter(t == maxT - 1, 
+         #DATEOUT != DATEIN, 
+         HISTCODE %in% c("OFF", "MSS", "MD", "SR"), 
+         DATEIN == DATEOUT) %>% 
+  select(STUDYNO) %>% 
+  distinct()
+
+final.penultimate.record.off <- intersect(last.record.off.datein.equals.dateout,
+                                          penultimate.record.off.datein.equals.dateout)
+
 ###############################################################
 
 allplants.cens %>% 
@@ -92,11 +115,19 @@ allplants.cens %>%
 # since YOUT was constructed by assigning all job history end dates within 3 years of 1995 as 95, we will call all of these
 # censored.
 
-
 # End of Active Employment
 new2 <- allplants.nocens %>% 
-  filter(t == maxT, HISTCODE %in% c("OFF", "MSS", "MD", "SR"), DATEIN == DATEOUT) %>% 
+  filter(t == maxT,
+         # Exclude folks whose penultimate record is also non-numeric, with DATEIN == DATEOUT
+         !STUDYNO %in% unlist(final.penultimate.record.off),
+         HISTCODE %in% c("OFF", "MSS", "MD", "SR"), DATEIN == DATEOUT) %>% 
   select(STUDYNO, finalyearIN = yearIN) 
+new2 <- allplants.nocens %>% 
+  filter(t == maxT - 1, # Use penultimate record
+         STUDYNO %in% unlist(final.penultimate.record.off)) %>% 
+  select(STUDYNO, finalyearIN = yearIN) %>% rbind(new2)
+
+# Last numeric entry for these folks
 new2b <- allplants.nocens %>% 
   filter(STUDYNO %in% new2$STUDYNO, !HISTCODE %in% c("OFF", "MSS", "MD", "SR"), DATEIN != DATEOUT) %>% 
   group_by(STUDYNO) %>% mutate(n.maxT = max(t))
@@ -141,9 +172,10 @@ final.record.dnd.g1year <- t3b %>% filter(finalyearIN - yearOUT > 1) %>% select(
 dta_end_of_employment <- allplants
 dta_end_of_employment <- dta_end_of_employment %>%
   group_by(STUDYNO) %>% 
-  mutate(year_left_work = ifelse(STUDYNO %in% final.record.off$STUDYNO, yearOUT[t == maxT],
-                            ifelse(STUDYNO %in% final.record.off.censored$STUDYNO, yearIN[t == maxT] + 10,
-                                   ifelse(STUDYNO %in% censored$STUDYNO, 1995, yearOUT[t == maxT])))) %>% 
+  mutate(year_left_work = ifelse(STUDYNO %in% final.record.off$STUDYNO,
+                                 ifelse(!STUDYNO %in% unlist(final.penultimate.record.off), yearOUT[t == maxT], yearOUT[t == (maxT - 1)]),
+                                 ifelse(STUDYNO %in% final.record.off.censored$STUDYNO, yearIN[t == maxT] + 10,
+                                        ifelse(STUDYNO %in% censored$STUDYNO, 1995, yearOUT[t == maxT])))) %>% 
   ungroup()
 
 box_save(dta_end_of_employment, 

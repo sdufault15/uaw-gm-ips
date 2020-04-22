@@ -1,4 +1,4 @@
-time_varying_function_nonpar <- function(dta_in, els){
+time_varying_function_nonpar <- function(dta_in = work_hist, els = ids){
   # This function produces the time-varying dataset for use in the IPS analysis
   
   dta <- dta_in %>%
@@ -47,7 +47,9 @@ time_varying_function_nonpar <- function(dta_in, els){
     
     # For positive length work records, set up a sequence of years
     if (dates$origin <= dates$origout){
-      seq_dates <- seq(dates$origin, dates$origout, by = 365)
+      seq_dates <- sapply(paste0(seq(lubridate::year(as.Date(dates$origin, origin = "1960-01-01")),
+                                     lubridate::year(as.Date(dates$origout, origin = "1960-01-01"))), "-01-01"),
+                          function(x) {julian(as.POSIXct(x), origin = as.POSIXct("1960-01-01"))})
       
       # For each year in that sequence...
       yr_count <- 1

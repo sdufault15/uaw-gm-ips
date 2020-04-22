@@ -7,20 +7,35 @@ box_auth()
 #library(doSNOW)
 library(here)
 
-source(here("lib", "2019-07-15_time-varying-function_nonpar.R"))
-load(here("data","2019-07-10_cohort_work-history_long.RData")) # end of employment dataset (work history)
+# Suzanne's script for getting time-varying covariates (tidyverse implementation)
+# source(here("lib", "2019-07-15_time-varying-function_nonpar.R"))
+# Kevin's script for getting time-varing covariates (data.table implementation)
+source(here("lib", "2020-04-21_time-varying-function_nonpar.R"))
 
 cohort <- box_read(485768272681) # need the long dataset for mean age ...
 cohort_long <- box_read(488427532080) # the long dataset
+dta_end_of_employment <- box_read(656270359800) # Job history
 
+# Merge end of employment
+cohort <- full_join(
+  cohort,
+  (dta_end_of_employment %>% select(STUDYNO, year_left_work) %>% distinct),
+  by = "STUDYNO")
+
+cohort_long <- full_join(
+  cohort_long,
+  (dta_end_of_employment %>% select(STUDYNO, year_left_work) %>% distinct),
+  by = "STUDYNO")
 
 # Identify those who were in the cohort by 1970
 fixed_covariates <- cohort %>%
-  filter(yrin16 < 1970 & YOUT16 > 1970)
+  filter(yrin16 < 1970 & year_left_work > 1970) # filter by new end of employment date, not 
 
-# Identify those who were at least 30 and no greater than 45 in 1970
-fixed_covariates <- fixed_covariates %>%
-  filter(1970 - YOB <= 45 & 1970 - YOB >= 30)
+
+# Comment out, as we decided not to limit by age
+# # Identify those who were at least 30 and no greater than 45 in 1970
+# fixed_covariates <- fixed_covariates %>%
+#   filter(1970 - YOB <= 45 & 1970 - YOB >= 30)
 
 ###############################################
 # THESE ARE THE INDIVIDUALS IN THE COHORT
@@ -31,8 +46,8 @@ ids <- fixed_covariates$STUDYNO
 dta_ips_long <- cohort_long %>%
   filter(STUDYNO %in% ids)
 
-  n_distinct(dta_ips_long$STUDYNO)
-  length(ids)
+n_distinct(dta_ips_long$STUDYNO)
+length(ids)
 
 # Extract their work histories
 work_hist <- dta_end_of_employment %>%
@@ -50,17 +65,18 @@ work_hist <- work_hist %>%
 
 # Build person-year dataset
 # COMMENTED TO SAVE TIME - FEEL FREE TO RERUN IF THE COHORT CHANGES
-dta_person_year_full_1970s <- time_varying_function_nonpar(work_hist, ids)
-
+dta_person_year_full_1970s <- time_varying_function_nonpar(work_hist)
 dta_person_year_full_1970s <- dta_person_year_full_1970s %>%
   distinct()
-save(dta_person_year_full_1970s, file = here("data","2019-08-22_full-person-year-data-1970s.RData"))
+box_save(dta_person_year_full_1970s,
+         dir_id = 80875764240,
+         file_name = "2020-04-21_full-person-year-data-1970s.RData",
+         description = "Long form version of the cohort dataset with time-varying covariates.")
 
 # Drop person-time before 1970
-load(here("data","2019-08-22_full-person-year-data-1970s.RData"))
-jj <- julian(as.POSIXct("1970-01-01"), origin = as.POSIXct("1960-01-01"))[[1]]
+dta_person_year_full_1970s <- box_read(656269683749)
 dta_person_year_full_1970s <- dta_person_year_full_1970s %>%
-  filter(origin >= jj)
+  filter(origin >= as.Date("1970-01-01"))
 
 ###############################################
 # Combine time-varying and fixed data
@@ -70,14 +86,19 @@ n_distinct(dta_person_year_full_1970s$STUDYNO)
 n_distinct(dta_ips_long$STUDYNO)
 
 dta_person_year_full_1970s <- dta_person_year_full_1970s %>%
-  mutate(cal_obs = date.mdy(origin)$year)
+  mutate(cal_obs = origin)
 dta_ips <- left_join(dta_person_year_full_1970s, dta_ips_long, by = c("STUDYNO", "cal_obs"))
-save(dta_ips, file = here("data","2019-08-22_ips-data-with-work.RData"))
+dta_ips <- left_join(select(dta_ips, -YOB, -YIN16, -race, -sex, - yod09),
+                     select(cohort, STUDYNO, YOB, YIN16, race, sex, yod09), by= c("STUDYNO"))
+box_save(dta_ips,
+         dir_id = 80875764240,
+         file_name = "2020-04-21_ips-data-with-work.RData",
+         description = "Long form version of the cohort dataset with baseline and time-varying covariates.")
 
 ###############################################
 # Combine time-varying and fixed data
 ###############################################
-load(here("data","2019-08-22_ips-data-with-work.RData"))
+dta_ips <- box_read(656275470844)
 
 dta_ips <- dta_ips %>%
   rowwise() %>%
@@ -137,15 +158,17 @@ dta_ips <- dta_ips %>%
 dta_ips %>%
   #filter(rownumber == max(rownumber)) %>%
   group_by(rownumber) %>%
-  summarize(n = n_distinct(STUDYNO)) %>%
-  View()
+  summarize(n = n_distinct(STUDYNO))
 
 dta_ips <- dta_ips %>%
-  mutate(A = ifelse(cal_obs >= floor(YOUT16) & YOUT16 != 1995, 1, 0))
+  mutate(A = ifelse(cal_obs >= floor(year_left_work) & year_left_work != 1995, 1, 0))
 
-save(dta_ips, file = here("data","2019-08-22_ips-data-with-work-final.RData"))
+box_save(dta_ips,
+         dir_id = 80875764240,
+         file_name = "2019-08-22_ips-data-with-work-final.RData",
+         description = "Final analytic dataset.")
 
-load(here("data","2019-08-22_ips-data-with-work-final.RData"))
+dta_ips <- box_read(656285655983)
 
 ###############
 # IPS
@@ -160,8 +183,10 @@ lackingrecords <- dta_ips %>%
 dta_ips <- dta_ips %>% 
   filter(!STUDYNO %in% lackingrecords)
 
-
-x.trt <- dta_ips %>% select(STUDYNO, YOB, YIN16, race, sex, 
+# Verify order
+dta_ips <- ungroup(arrange(dta_ips, STUDYNO, cal_obs))
+x.trt <- dta_ips %>% select(STUDYNO,
+                            YOB, YIN16, race, sex, 
                             year_obs, age_obs, 
                             prop.days.gan, prop.days.han, prop.days.san,
                             prop.days.mach, prop.days.assembly, prop.days.off,
@@ -178,5 +203,7 @@ dim(x.trt); dim(x.out)
 length(time); length(a); length(y) ; length(id)
 
 d.seq <- c(seq(0.1,0.9, length.out = 9), seq(1,5, length.out = 5))
-ipsi.res <- ipsi(y,a, x.trt,x.out, time, id, d.seq)
-
+# ipsi.res <- ipsi(y,a, x.trt,x.out, time, id, d.seq)
+# box_save(ipsi.res,
+#          dir_id = 80875764240,
+#          file_name = "ipsi.RData")

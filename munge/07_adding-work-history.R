@@ -180,7 +180,7 @@ dta_end_of_employment <- dta_end_of_employment %>%
 
 box_save(dta_end_of_employment, 
          dir_id = 80875764240, 
-         file_name = "2019-07-10_cohort_work-history_long.RData", 
+         file_name = "2020-04-21_cohort_work-history_long.RData", 
          description = "Merging the cohort demographic data with the job histories. Reconciling differences in YOUT (cohort) and DATEOUT (job hist).")
 
 

@@ -18,7 +18,7 @@ source(here("munge", "05_incorporating-suicide-overdose-codes.R"))
 source(here("munge", "06_creating-long-dataset.R")) # just demographics, no work history
 
 source(here("munge", "07_adding-work-history.R"))
-source(here("munge", "08_ips-dataset.R"))
+source(here("munge", "08_ips-data-70s.R"))
 
 # source(here("munge", "04_data-cleaning.R"))
 # source(here("munge", "data-cleaning-end-of-work.R"))

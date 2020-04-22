@@ -4,6 +4,10 @@ Repository to hold code for UAW GM IPS manuscript
 
 ## Change log
 
+- April 22, 2020
+	- Line 188: Change covariate list to match that given by Suzanne
+			- Exposure (propensity to leave work): cumulative years of employment `year_obs`,  proportion of year spent in machining `prop.days.mach`, proportion of year spent in assembly, `prop.days.assembly`, proportion of time spent off work `prop.days.off`, plant `PLANT`, calendar year, age, pension eligibility, and cumulative time off work
+			- Outcome: propensities (from first model), year of hire, race, sex, and pension eligibility
 - April 21, 2020
 	- `./munge/07_adding-work-history.R`
 		- Line 41: Collapsed duplicated entries

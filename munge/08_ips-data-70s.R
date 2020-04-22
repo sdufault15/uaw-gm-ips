@@ -185,14 +185,16 @@ dta_ips <- dta_ips %>%
 
 # Verify order
 dta_ips <- ungroup(arrange(dta_ips, STUDYNO, cal_obs))
-x.trt <- dta_ips %>% select(STUDYNO,
+x.trt <- dta_ips %>% select(#STUDYNO,
                             YOB, YIN16, race, sex, 
                             year_obs, age_obs, 
-                            prop.days.gan, prop.days.han, prop.days.san,
+                            PLANT,
+                            # prop.days.gan, prop.days.han, prop.days.san,
                             prop.days.mach, prop.days.assembly, prop.days.off,
                             pension.eligibility,
                             cumulative_days_off) %>% data.matrix()
-x.out <- dta_ips %>% select(STUDYNO, YOB, race, sex, age_obs) %>% data.matrix()
+x.out <- dta_ips %>% select(#STUDYNO,
+                            YOB, race, sex, age_obs) %>% data.matrix()
 time <- dta_ips %>% ungroup() %>% select(cal_obs) %>% unlist()
 a <- dta_ips %>% ungroup() %>% select(A) %>%  unlist()
 #y <- dta.ips %>% select(STUDYNO, suicide) %>% distinct() %>% select(suicide) %>% unlist() # just suicides

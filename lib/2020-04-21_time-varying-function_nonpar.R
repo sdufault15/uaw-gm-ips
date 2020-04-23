@@ -84,7 +84,8 @@ time_varying_function_nonpar <- function(dta_in = work_hist){
   
   # Divide counts by days in year
   cols <- paste0("ndays.", c("GAN", "HAN", "SAN", "mach", "assembly", "off"))
-  dta_tv[ ,(cols) := lapply(.SD, "/", daysInYear), .SDcols = cols]
+  cols.new <- paste0("prop.days.", c("GAN", "HAN", "SAN", "mach", "assembly", "off"))
+  dta_tv[ ,(cols.new) := lapply(.SD, "/", daysInYear), .SDcols = cols]
   
   # make yearWork
   setorder(dta_tv, STUDYNO, year)

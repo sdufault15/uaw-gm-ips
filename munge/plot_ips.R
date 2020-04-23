@@ -1,3 +1,4 @@
+ipsi.res <- box_read(656864756500)
 # plot results
 ipsi.res$res.ptwise %>% ggplot(
 	aes(x = increment,
@@ -26,7 +27,7 @@ ipsi.res$res.ptwise %>% ggplot(
 		y = "Suicide and overdose deaths"
 	) +
 	coord_cartesian(xlim = c(0.5, 1.5),
-									ylim = c(200, 500)) +
+									ylim = c(150, 500)) +
 	theme_bw() +
 	theme(
 		# text=element_text(family="serif"),

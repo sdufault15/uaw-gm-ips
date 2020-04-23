@@ -54,16 +54,16 @@ time_varying_function_nonpar <- function(dta_in = work_hist){
   
   # Calculate number of days at start, end, and middle of record
   dta_tv[year(DATEIN) == year & year(DATEOUT) == year,`:=`(
-    daysInJob = time_length(difftime(DATEOUT + days(1), DATEIN), "year")
+    daysInJob = time_length(difftime(DATEOUT + days(1), DATEIN), "day")
   )]
   dta_tv[year(DATEIN) == year & year(DATEOUT) > year,`:=`(
-    daysInJob = time_length(difftime(as.Date(paste0(year + 1, "-01-01")), DATEIN), "year")
+    daysInJob = time_length(difftime(as.Date(paste0(year + 1, "-01-01")), DATEIN), "day")
   )]
   dta_tv[year(DATEIN) < year & year(DATEOUT) == year,`:=`(
-    daysInJob = time_length(difftime(DATEOUT + days(1),  paste0(year, "-01-01")), "year")
+    daysInJob = time_length(difftime(DATEOUT + days(1),  paste0(year, "-01-01")), "day")
   )]
   dta_tv[year(DATEIN) < year & year(DATEOUT) > year,`:=`(
-    daysInJob = time_length(difftime(as.Date(paste0(year + 1, "-01-01")),  paste0(year, "-01-01")), "year")
+    daysInJob = time_length(difftime(as.Date(paste0(year + 1, "-01-01")),  paste0(year, "-01-01")), "day")
   )]
   
   # Sum up by year 
@@ -87,20 +87,28 @@ time_varying_function_nonpar <- function(dta_in = work_hist){
   cols.new <- paste0("prop.days.", c("GAN", "HAN", "SAN", "mach", "assembly", "off"))
   dta_tv[ ,(cols.new) := lapply(.SD, "/", daysInYear), .SDcols = cols]
   
+  # Make years contiguous 
+  contiguous_dta_tv <- dta_tv[,.(
+    year = min(year):max(year)
+  ), by = .(STUDYNO)]
+  
+  dta_tv <- merge(contiguous_dta_tv, dta_tv,
+        all = T, by = c("STUDYNO", "year"))
+  
+  dta_tv[is.na(ndays.GAN), gap_in_record := 1]
+  dta_tv[is.na(gap_in_record), gap_in_record := 0]
+  
   # make yearWork
   setorder(dta_tv, STUDYNO, year)
   dta_tv[,`:=`(
     yearWork = 1:.N
   ), by = .(STUDYNO)]
   
-  # rename year
-  names(dta_tv)[names(dta_tv) == "year"] <- "origin"
-  
   dta_tv <- as.data.frame(dta_tv)
   
   # detach packages
-  detach(package:data.table, unload = T)
-  detach(package:lubridate, unload = T)
+  detach(package:data.table)
+  detach(package:lubridate)
   
   return(dta_tv)
 }

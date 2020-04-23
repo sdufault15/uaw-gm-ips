@@ -72,9 +72,9 @@ box_save(dta_person_year_full_1970s,
          description = "Long form version of the cohort dataset with time-varying covariates.")
 
 # Drop person-time before 1970
-dta_person_year_full_1970s <- box_read(656269683749)
+# dta_person_year_full_1970s <- box_read(656269683749)
 dta_person_year_full_1970s <- dta_person_year_full_1970s %>%
-  filter(origin >= as.Date("1970-01-01"))
+  filter(year >= 1970)
 
 ###############################################
 # Combine time-varying and fixed data
@@ -84,7 +84,7 @@ n_distinct(dta_person_year_full_1970s$STUDYNO)
 n_distinct(dta_ips_long$STUDYNO)
 
 dta_person_year_full_1970s <- dta_person_year_full_1970s %>%
-  mutate(cal_obs = origin)
+  mutate(cal_obs = year)
 dta_ips <- left_join(dta_person_year_full_1970s, dta_ips_long, by = c("STUDYNO", "cal_obs"))
 dta_ips <- left_join(select(dta_ips, -YOB, -YIN16, -race, -sex, - yod09),
                      select(cohort, STUDYNO, YOB, YIN16, race, sex, yod09), by= c("STUDYNO"))
@@ -146,7 +146,7 @@ box_save(dta_ips,
 ###############################################
 # Transform data
 ###############################################
-dta_ips <- box_read(656275470844)
+# dta_ips <- box_read(656275470844)
 
 # Identify pension eligibility - primarily based off of the 30-and-out rule
 dta_ips <- dta_ips %>% mutate(pension.eligibility = case_when(yearWork >= 30 ~ 1,
@@ -172,11 +172,16 @@ dta_ips <- dta_ips %>% mutate(calendar_year = cal_obs)
 # Those who need leading rows
 dta_ips %>% group_by(STUDYNO) %>% summarise(
   need = min(cal_obs) > 1970
-) %>% filter(need == T) %>% select(STUDYNO) -> need.lead.who
+) %>% filter(need == T) %>% select(STUDYNO) %>% unlist -> need.lead.who
+
+# Those who need trailing rows
+dta_ips %>% group_by(STUDYNO) %>% summarise(
+  need = max(cal_obs) < 1994
+) %>% filter(need == T) %>% select(STUDYNO) %>% unlist -> need.trail.who
 
 library(data.table)
 # Make leading rows
-leaders <- as.data.table(dta_ips)[STUDYNO %in% unlist(need.lead.who),]
+leaders <- as.data.table(dta_ips)[STUDYNO %in% need.lead.who,]
 leaders[,`:=`(cal_obs.min = min(cal_obs)), by = .(STUDYNO)]
 leaders <- leaders[cal_obs == cal_obs.min]
 leaders <- merge(leaders[,.(cal_obs = ((cal_obs[1] - 1):1970)), by = .(STUDYNO)],
@@ -184,13 +189,8 @@ leaders <- merge(leaders[,.(cal_obs = ((cal_obs[1] - 1):1970)), by = .(STUDYNO)]
                  on = "STUDYNO",
                  all = T)[,-"cal_obs.min", with = F]
 
-# Those who need trailing rows
-dta_ips %>% group_by(STUDYNO) %>% summarise(
-  need = max(cal_obs) < 1994
-) %>% filter(need == T) %>% select(STUDYNO) -> need.trail.who
-
 # Make trailing rows
-trailers <- as.data.table(dta_ips)[STUDYNO %in% unlist(need.trail.who),]
+trailers <- as.data.table(dta_ips)[STUDYNO %in% need.trail.who,]
 trailers[,`:=`(cal_obs.max = max(cal_obs)), by = .(STUDYNO)]
 trailers <- trailers[cal_obs == cal_obs.max]
 trailers <- merge(trailers[,.(cal_obs = ((cal_obs[1] + 1):1994)), by = .(STUDYNO)],
@@ -201,15 +201,13 @@ trailers <- merge(trailers[,.(cal_obs = ((cal_obs[1] + 1):1994)), by = .(STUDYNO
 # Bind newly created rows
 dta_ips <- rbindlist(list(leaders, dta_ips, trailers), use.names = T)
 setorder(dta_ips, STUDYNO, cal_obs)
-dta_ips[,`:=`(rownumber = .N), by = .(STUDYNO)]
 dta_ips <- as.data.frame(dta_ips)
 detach(package:data.table)
 
 # Confirm there are 25 rows for all people
 dta_ips %>%
-  #filter(rownumber == max(rownumber)) %>%
-  group_by(rownumber) %>%
-  summarize(n = n_distinct(STUDYNO))
+  group_by(cal_obs) %>%
+  summarize(n = n_distinct(STUDYNO)) %>% select(n) %>% table
 
 dta_ips <- dta_ips %>%
   mutate(A = ifelse(cal_obs >= floor(year_left_work) & year_left_work != 1995, 1, 0))
@@ -219,7 +217,7 @@ box_save(dta_ips,
          file_name = "2019-08-22_ips-data-with-work-final.RData",
          description = "Final analytic dataset.")
 
-dta_ips <- box_read(656285655983)
+# dta_ips <- box_read(656285655983)
 
 ###############
 # IPS
@@ -251,13 +249,13 @@ time <- dta_ips %>% ungroup() %>% select(cal_obs) %>% unlist()
 a <- dta_ips %>% ungroup() %>% select(A) %>%  unlist()
 #y <- dta.ips %>% select(STUDYNO, suicide) %>% distinct() %>% select(suicide) %>% unlist() # just suicides
 y <- dta_ips %>% mutate(SIM = ifelse(suicide == 1 | poison == 1, 1, 0)) %>% select(STUDYNO, SIM) %>% distinct() %>% ungroup() %>% select(SIM) %>% unlist()
-id <- dta_ips %>% select(STUDYNO) %>% unlist()
+id <- dta_ips$STUDYNO
 
 dim(x.trt); dim(x.out)
 length(time); length(a); length(y) ; length(id)
 
-d.seq <- c(seq(0.1,0.9, length.out = 9), seq(1,5, length.out = 5))
-# ipsi.res <- ipsi(y,a, x.trt,x.out, time, id, d.seq)
+delta.seq <- unique(c(seq(0.1,1.5, by = 0.025), seq(1.5, 5, by = 0.5)))
+# ipsi.res <- npcausal::ipsi(y, a, x.trt, x.out, time, id, delta.seq, nsplits = 3)
 # box_save(ipsi.res,
 #          dir_id = 80875764240,
 #          file_name = "ipsi.RData")

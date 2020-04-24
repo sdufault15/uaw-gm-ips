@@ -7,6 +7,15 @@ box_auth()
 #library(doSNOW)
 library(here)
 
+# Which variable to use as year of employment end
+# yout.which <- "year_left_work"
+yout.which <- "YOUT16"
+
+# Which Box directory
+box.dir <- ifelse(yout.which == "YOUT16",
+                  111331236161,
+                  111328660604)
+
 # Suzanne's script for getting time-varying covariates (tidyverse implementation)
 # source(here("lib", "2019-07-15_time-varying-function_nonpar.R"))
 # Kevin's script for getting time-varing covariates (data.table implementation)
@@ -18,20 +27,20 @@ dta_end_of_employment <- box_read(656270359800) # Job history
 
 # Merge end of employment
 cohort <- full_join(
-  cohort,
-  (dta_end_of_employment %>% select(STUDYNO, year_left_work) %>% distinct),
+  (cohort %>% select(-yout.which)),
+  (dta_end_of_employment %>% select(STUDYNO, yout.which) %>% distinct),
   by = "STUDYNO")
 
 cohort_long <- full_join(
-  cohort_long,
-  (dta_end_of_employment %>% select(STUDYNO, year_left_work) %>% distinct),
+  (cohort_long %>% select(-yout.which)),
+  (dta_end_of_employment[,c("STUDYNO", yout.which)] %>% distinct),
   by = "STUDYNO")
 
 # Identify those who were in the cohort by 1970
 fixed_covariates <- cohort %>%
   filter(#yrin16 < 1970 & 
-    year_left_work > 1970 &
-    yrin16 < year_left_work) # filter by new end of employment date, not YOUT16
+    yout.which > 1970 &
+    yrin16 < yout.which) # filter by new end of employment date, not YOUT16
 
 
 # Comment out, as we decided not to limit by age
@@ -67,12 +76,12 @@ dta_person_year_full_1970s <- time_varying_function_nonpar(work_hist)
 dta_person_year_full_1970s <- dta_person_year_full_1970s %>%
   distinct()
 box_save(dta_person_year_full_1970s,
-         dir_id = 80875764240,
+         dir_id = box.dir,
          file_name = "2020-04-21_full-person-year-data-1970s.RData",
          description = "Long form version of the cohort dataset with time-varying covariates.")
 
 # Drop person-time before 1970
-# dta_person_year_full_1970s <- box_read(656269683749)
+# dta_person_year_full_1970s <- box_read(ifelse(yout.which == "YOUT16", 657154373362, 656269683749))
 dta_person_year_full_1970s <- dta_person_year_full_1970s %>%
   filter(year >= 1970)
 
@@ -86,12 +95,13 @@ n_distinct(dta_ips_long$STUDYNO)
 dta_person_year_full_1970s <- dta_person_year_full_1970s %>%
   mutate(cal_obs = year)
 dta_ips <- left_join(dta_person_year_full_1970s, dta_ips_long, by = c("STUDYNO", "cal_obs"))
-dta_ips <- left_join(select(dta_ips, -YOB, -YIN16, -race, -sex, - yod09),
-                     select(cohort, STUDYNO, YOB, YIN16, race, sex, yod09), by= c("STUDYNO"))
+dta_ips <- left_join(select(dta_ips, -YOB, -YIN16, -race, -sex, - yod09, -yout.which),
+                     select(cohort, STUDYNO, YOB, YIN16, race, sex, yod09, yout.which),
+                     by= c("STUDYNO"))
 
 # Get rid of rows after death, rows before yrin16, rows after 1994
 dta_ips <- dta_ips %>% filter(
-  cal_obs <= floor(year_left_work),
+  cal_obs <= floor(get(yout.which)),
   cal_obs <= floor(yod09),
   cal_obs >= floor(yrin16),
   cal_obs >= 1970,
@@ -125,7 +135,7 @@ dta_ips[,`:=`(
 )]
 
 # Fill in time-varying covariates for time after leaving work
-dta_ips[cal_obs > year_left_work,`:=`(
+dta_ips[cal_obs > get(yout.which),`:=`(
   ndays.mach = 0,
   ndays.assembly = 0,
   ndays.off = 0,
@@ -139,14 +149,14 @@ dta_ips <- as.data.frame(dta_ips)
 detach(package:data.table)
 
 box_save(dta_ips,
-         dir_id = 80875764240,
+         dir_id = box.dir,
          file_name = "2020-04-21_ips-data-with-work.RData",
          description = "Long form version of the cohort dataset with baseline and time-varying covariates.")
 
 ###############################################
 # Transform data
 ###############################################
-# dta_ips <- box_read(656275470844)
+# dta_ips <- box_read(ifelse(yout.which == "YOUT16", 657147487614, 656275470844))
 
 # Identify pension eligibility - primarily based off of the 30-and-out rule
 dta_ips <- dta_ips %>% mutate(pension.eligibility = case_when(yearWork >= 30 ~ 1,
@@ -210,14 +220,14 @@ dta_ips %>%
   summarize(n = n_distinct(STUDYNO)) %>% select(n) %>% table
 
 dta_ips <- dta_ips %>%
-  mutate(A = ifelse(cal_obs >= floor(year_left_work) & year_left_work != 1995, 1, 0))
+  mutate(A = ifelse(cal_obs >= floor(get(yout.which)) & yout.which != 1995, 1, 0))
 
 box_save(dta_ips,
-         dir_id = 80875764240,
-         file_name = "2019-08-22_ips-data-with-work-final.RData",
+         dir_id = box.dir,
+         file_name = "2020-04-23_ips-data-with-work-final.RData",
          description = "Final analytic dataset.")
 
-# dta_ips <- box_read(656285655983)
+# dta_ips <- box_read(ifelse(yout.which == "YOUT16", 657149129798, 656285655983))
 
 ###############
 # IPS
@@ -252,10 +262,11 @@ y <- dta_ips %>% mutate(SIM = ifelse(suicide == 1 | poison == 1, 1, 0)) %>% sele
 id <- dta_ips$STUDYNO
 
 dim(x.trt); dim(x.out)
-length(time); length(a); length(y) ; length(id)
+length(y); length(table(id))
+table(c(length(time), length(a), length(y) * length(table(time)) , length(id)))
 
 delta.seq <- unique(c(seq(0.1,1.5, by = 0.025), seq(1.5, 5, by = 0.5)))
 # ipsi.res <- npcausal::ipsi(y, a, x.trt, x.out, time, id, delta.seq, nsplits = 3)
 # box_save(ipsi.res,
-#          dir_id = 80875764240,
+#          dir_id = box.dir,
 #          file_name = "ipsi.RData")

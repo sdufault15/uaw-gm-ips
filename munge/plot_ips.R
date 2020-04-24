@@ -1,4 +1,21 @@
-ipsi.res <- box_read(656864756500)
+# # Load analytic data based on which variable used as year of employment end
+# dta_ips <- box_read(ifelse(yout.which == "YOUT16", 657149129798, 656285655983))
+# 
+# lackingrecords <- dta_ips %>%
+#   filter(is.na(A)) %>%
+#   select(STUDYNO) %>% 
+#   distinct() %>%
+#   unlist()
+# 
+# dta_ips <- dta_ips %>% 
+#   filter(!STUDYNO %in% lackingrecords)
+
+# Load IPS results
+# yout.which <- "year_left_work"
+yout.which <- "YOUT16"
+ipsi.res <- box_read(
+	ifelse(yout.which == "YOUT16", 657188392651, 656864756500))
+
 # plot results
 ipsi.res$res.ptwise %>% ggplot(
 	aes(x = increment,

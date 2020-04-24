@@ -1,18 +1,21 @@
-# # Load analytic data based on which variable used as year of employment end
-# dta_ips <- box_read(ifelse(yout.which == "YOUT16", 657149129798, 656285655983))
-# 
-# lackingrecords <- dta_ips %>%
-#   filter(is.na(A)) %>%
-#   select(STUDYNO) %>% 
-#   distinct() %>%
-#   unlist()
-# 
-# dta_ips <- dta_ips %>% 
-#   filter(!STUDYNO %in% lackingrecords)
-
-# Load IPS results
+library(boxr); box_auth(); library(tidyverse)
+# Pick variable to use for year of employment end
 # yout.which <- "year_left_work"
 yout.which <- "YOUT16"
+
+# Load analytic data based on which variable used as year of employment end
+dta_ips <- box_read(ifelse(yout.which == "YOUT16", 657149129798, 656285655983))
+
+lackingrecords <- dta_ips %>%
+  filter(is.na(A)) %>%
+  select(STUDYNO) %>%
+  distinct() %>%
+  unlist()
+
+dta_ips <- dta_ips %>%
+  filter(!STUDYNO %in% lackingrecords)
+
+# Load IPS results
 ipsi.res <- box_read(
 	ifelse(yout.which == "YOUT16", 657188392651, 656864756500))
 

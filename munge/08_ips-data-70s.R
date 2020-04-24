@@ -8,8 +8,8 @@ box_auth()
 library(here)
 
 # Which variable to use as year of employment end
-# yout.which <- "year_left_work"
-yout.which <- "YOUT16"
+yout.which <- "year_left_work"
+# yout.which <- "YOUT16"
 
 # Which Box directory
 box.dir <- ifelse(yout.which == "YOUT16",
@@ -27,12 +27,12 @@ dta_end_of_employment <- box_read(656270359800) # Job history
 
 # Merge end of employment
 cohort <- full_join(
-  (cohort %>% select(-yout.which)),
+  (if (yout.which == "YOUT16") {cohort %>% select(-yout.which)} else {cohort}),
   (dta_end_of_employment %>% select(STUDYNO, yout.which) %>% distinct),
   by = "STUDYNO")
 
 cohort_long <- full_join(
-  (cohort_long %>% select(-yout.which)),
+  (if (yout.which == "YOUT16") {cohort_long %>% select(-yout.which)} else {cohort_long}),
   (dta_end_of_employment[,c("STUDYNO", yout.which)] %>% distinct),
   by = "STUDYNO")
 
@@ -265,8 +265,18 @@ dim(x.trt); dim(x.out)
 length(y); length(table(id))
 table(c(length(time), length(a), length(y) * length(table(time)) , length(id)))
 
-delta.seq <- unique(c(seq(0.1,1.5, by = 0.025), seq(1.5, 5, by = 0.5)))
-# ipsi.res <- npcausal::ipsi(y, a, x.trt, x.out, time, id, delta.seq, nsplits = 3)
-# box_save(ipsi.res,
-#          dir_id = box.dir,
-#          file_name = "ipsi.RData")
+# delta.seq <- unique(c(seq(0.1,1.5, by = 0.025), seq(1.5, 5, by = 0.5)))
+delta.seq <- unique(c(seq(0.25,1.25, by = 0.025)))
+
+# File name indicating delta range
+file.name <- paste0(
+  "ipsi_", round(delta.seq[1], digits = 2), "-",
+  round(delta.seq[length(delta.seq)], digits = 2), ".RData")
+
+ipsi.res <- npcausal::ipsi(y, a, x.trt, x.out, time, id, delta.seq, nsplits = 3)
+box_save(ipsi.res,
+         dir_id = box.dir,
+         file_name = file.name,
+         description = paste0("IPS results for delta spanning ",
+                             delta.seq[1], " to ", delta.seq[length(delta.seq)],
+                            ", using `", yout.which, "` for year of leaving work."))

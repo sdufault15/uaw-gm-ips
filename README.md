@@ -4,6 +4,14 @@ Repository to hold code for UAW GM IPS manuscript
 
 ## Change log
 
+### April 24, 2020
+
+- `08_ips-data-70s.R`
+	- Line 30 and 35: Avoid merge conflict when using `YOUT16` for year of leaving work
+	- Line 269: Defining a narrowing range for $\delta$
+	- Line 271: Creates a file name for the output of `npcausal::ipsi()` that includes information on the range of $\delta$
+	- Line 277: Added file description when saving output of `npcausal::ipsi()` to Box
+
 ### April 23, 2020
 
 - `08_ips-data-70s.R`

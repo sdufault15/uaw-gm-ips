@@ -1,7 +1,7 @@
 library(boxr); box_auth(); library(tidyverse)
 # Pick variable to use for year of employment end
-# yout.which <- "year_left_work"
-yout.which <- "YOUT16"
+yout.which <- "year_left_work"
+# yout.which <- "YOUT16"
 
 # Load analytic data based on which variable used as year of employment end
 dta_ips <- box_read(ifelse(yout.which == "YOUT16", 657149129798, 656285655983))
@@ -20,7 +20,11 @@ ipsi.res <- box_read(
 	ifelse(yout.which == "YOUT16", 657188392651, 656864756500))
 
 # plot results
-ipsi.res$res.ptwise %>% ggplot(
+rbind(
+	mutate(ipsi.res$res.ptwise,
+				 `Inference:` = "Pointwise"),
+	mutate(ipsi.res$res,
+				 `Inference:` = "Uniform")) %>% ggplot(
 	aes(x = increment,
 			y = est * length(table(dta_ips$STUDYNO))
 	)) +
@@ -35,12 +39,12 @@ ipsi.res$res.ptwise %>% ggplot(
 				table(dta_ips$STUDYNO))),
 		linetype = 2,
 		color = 'salmon') +
-	# geom_smooth(se = F) +
 	geom_ribbon(aes(
 		ymin = ci.ll * length(table(dta_ips$STUDYNO)),
-		ymax = ci.ul * length(table(dta_ips$STUDYNO))
+		ymax = ci.ul * length(table(dta_ips$STUDYNO)),
+		fill = `Inference:`
 	),
-	fill = 'grey',
+	# fill = 'grey',
 	alpha = 0.2) +
 	labs(
 		x = "Shift in OR of job loss",
@@ -56,8 +60,8 @@ ipsi.res$res.ptwise %>% ggplot(
 		plot.title = element_text(size = 9),
 		legend.title = element_text(size = 9),
 		legend.text = element_text(size = 9),
-		strip.text = element_text(size = 9)
-		# legend.position="none"
+		strip.text = element_text(size = 9),
+		legend.position = "bottom"
 	)
 
 ipsi.res$res.ptwise %>% mutate(

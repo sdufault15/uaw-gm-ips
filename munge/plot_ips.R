@@ -17,7 +17,7 @@ dta_ips <- dta_ips %>%
 
 # Load IPS results
 ipsi.res <- box_read(
-	ifelse(yout.which == "YOUT16", 657188392651, 656864756500))
+	ifelse(yout.which == "YOUT16", 657188392651, 657672760394))
 
 # plot results
 rbind(
@@ -47,10 +47,10 @@ rbind(
 	# fill = 'grey',
 	alpha = 0.2) +
 	labs(
-		x = "Shift in OR of job loss",
+		x = "Shift in OR of the PS for job loss",
 		y = "Suicide and overdose deaths"
 	) +
-	coord_cartesian(xlim = c(0.5, 1.5),
+	coord_cartesian(xlim = c(0.77, 1.23),
 									ylim = c(150, 500)) +
 	theme_bw() +
 	theme(

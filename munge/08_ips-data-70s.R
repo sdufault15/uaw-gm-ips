@@ -36,17 +36,25 @@ cohort_long <- full_join(
   (dta_end_of_employment[,c("STUDYNO", yout.which)] %>% distinct),
   by = "STUDYNO")
 
+# Build person-year dataset
+# # COMMENTED TO SAVE TIME - FEEL FREE TO RERUN IF THE COHORT CHANGES
+# dta_person_year_full <- time_varying_function_nonpar(dta_end_of_employment)
+# dta_person_year_full <- dta_person_year_full %>%
+#   distinct()
+# box_save(dta_person_year_full,
+#          dir_id = box.dir,
+#          file_name = "2020-04-21_full-person-year-data.RData",
+#          description = "Long form version of the cohort dataset with time-varying covariates.")
+
+# dta_person_year_full_1970s <- box_read(ifelse(yout.which == "YOUT16", 657154373362, 656269683749))
+dta_person_year_full <- box_read(ifelse(yout.which == "YOUT16", 661842322105, 661838165913))
+
+# Drop person-time before 1970
 # Identify those who were in the cohort by 1970
 fixed_covariates <- cohort %>%
-  filter(#yrin16 < 1970 & 
-    yout.which > 1970 &
+  filter(
+    yout.which > 1970,
     yrin16 < yout.which) # filter by new end of employment date, not YOUT16
-
-
-# Comment out, as we decided not to limit by age
-# # Identify those who were at least 30 and no greater than 45 in 1970
-# fixed_covariates <- fixed_covariates %>%
-#   filter(1970 - YOB <= 45 & 1970 - YOB >= 30)
 
 ###############################################
 # THESE ARE THE INDIVIDUALS IN THE COHORT
@@ -61,40 +69,22 @@ n_distinct(dta_ips_long$STUDYNO)
 length(ids)
 
 # Extract their work histories
-work_hist <- dta_end_of_employment %>%
+dta_person_year_full <- dta_person_year_full %>%
   filter(STUDYNO %in% ids)
 
-n_distinct(work_hist$STUDYNO)
+n_distinct(dta_person_year_full$STUDYNO)
 length(ids)
-
-n_distinct(work_hist$STUDYNO)
-length(ids)
-
-# Build person-year dataset
-# COMMENTED TO SAVE TIME - FEEL FREE TO RERUN IF THE COHORT CHANGES
-dta_person_year_full_1970s <- time_varying_function_nonpar(work_hist)
-dta_person_year_full_1970s <- dta_person_year_full_1970s %>%
-  distinct()
-box_save(dta_person_year_full_1970s,
-         dir_id = box.dir,
-         file_name = "2020-04-21_full-person-year-data-1970s.RData",
-         description = "Long form version of the cohort dataset with time-varying covariates.")
-
-# Drop person-time before 1970
-# dta_person_year_full_1970s <- box_read(ifelse(yout.which == "YOUT16", 657154373362, 656269683749))
-dta_person_year_full_1970s <- dta_person_year_full_1970s %>%
-  filter(year >= 1970)
 
 ###############################################
 # Combine time-varying and fixed data
 ###############################################
 
-n_distinct(dta_person_year_full_1970s$STUDYNO)
+n_distinct(dta_person_year_full$STUDYNO)
 n_distinct(dta_ips_long$STUDYNO)
 
-dta_person_year_full_1970s <- dta_person_year_full_1970s %>%
+dta_person_year_full <- dta_person_year_full %>%
   mutate(cal_obs = year)
-dta_ips <- left_join(dta_person_year_full_1970s, dta_ips_long, by = c("STUDYNO", "cal_obs"))
+dta_ips <- left_join(dta_person_year_full, dta_ips_long, by = c("STUDYNO", "cal_obs"))
 dta_ips <- left_join(select(dta_ips, -YOB, -YIN16, -race, -sex, - yod09, -yout.which),
                      select(cohort, STUDYNO, YOB, YIN16, race, sex, yod09, yout.which),
                      by= c("STUDYNO"))
@@ -103,14 +93,12 @@ dta_ips <- left_join(select(dta_ips, -YOB, -YIN16, -race, -sex, - yod09, -yout.w
 dta_ips <- dta_ips %>% filter(
   cal_obs <= floor(get(yout.which)),
   cal_obs <= floor(yod09),
-  cal_obs >= floor(yrin16),
-  cal_obs >= 1970,
-  cal_obs <= 1994)
+  cal_obs >= floor(yrin16))
 
 library(data.table)
 setDT(dta_ips)
 # Fill missing covariates
-dta_ips[,`:=`(
+dta_ips[, `:=`(
   yearWork = zoo::na.locf(yearWork),
   ndays.GAN = zoo::na.locf(ndays.GAN, na.rm = F),
   ndays.HAN = zoo::na.locf(ndays.HAN, na.rm = F),
@@ -121,11 +109,12 @@ dta_ips[,`:=`(
 ), by = .(STUDYNO)]
 
 # There are gaps in the work history data
-dta_ips[,.(n.missing = sum(is.na(ndays.mach))),
+dta_ips[, .(
+  n.missing = sum(is.na(ndays.mach))),
         by = .(STUDYNO)][n.missing > 0]$n.missing %>% table
 
 # Fill them in, for now
-dta_ips[,`:=`(
+dta_ips[, `:=`(
   ndays.mach = zoo::na.locf(ndays.mach),
   ndays.assembly = zoo::na.locf(ndays.assembly),
   ndays.off = zoo::na.locf(ndays.off),
@@ -135,7 +124,7 @@ dta_ips[,`:=`(
 )]
 
 # Fill in time-varying covariates for time after leaving work
-dta_ips[cal_obs > get(yout.which),`:=`(
+dta_ips[cal_obs > get(yout.which), `:=`(
   ndays.mach = 0,
   ndays.assembly = 0,
   ndays.off = 0,
@@ -145,6 +134,7 @@ dta_ips[cal_obs > get(yout.which),`:=`(
 )]
 
 setorder(dta_ips, STUDYNO, cal_obs)
+
 dta_ips <- as.data.frame(dta_ips)
 detach(package:data.table)
 
@@ -173,8 +163,13 @@ dta_ips <- dta_ips %>%
 ###############################################
 
 # Remove un-needed rows
-dta_ips <- dta_ips %>% filter(cal_obs <= 1994 &
-                                cal_obs >= 1970)
+dta_ips <- dta_ips %>% filter(cal_obs <= 1994, cal_obs >= 1970)
+
+# Make indicator for whether "filler" rows were added
+dta_ips$filler <- 0
+
+# Make indicator for whether "filler" rows were added
+dta_ips$filler <- 0
 
 # Duplicate `cal_obs`
 dta_ips <- dta_ips %>% mutate(calendar_year = cal_obs)
@@ -198,6 +193,7 @@ leaders <- merge(leaders[,.(cal_obs = ((cal_obs[1] - 1):1970)), by = .(STUDYNO)]
                  leaders[,-"cal_obs"],
                  on = "STUDYNO",
                  all = T)[,-"cal_obs.min", with = F]
+leaders$filler <- 1
 
 # Make trailing rows
 trailers <- as.data.table(dta_ips)[STUDYNO %in% need.trail.who,]
@@ -207,6 +203,7 @@ trailers <- merge(trailers[,.(cal_obs = ((cal_obs[1] + 1):1994)), by = .(STUDYNO
                   trailers[,-"cal_obs"],
                   on = "STUDYNO",
                   all = T)[,-"cal_obs.max", with = F]
+trailers$filler <- 1
 
 # Bind newly created rows
 dta_ips <- rbindlist(list(leaders, dta_ips, trailers), use.names = T)
@@ -266,7 +263,7 @@ length(y); length(table(id))
 table(c(length(time), length(a), length(y) * length(table(time)) , length(id)))
 
 # delta.seq <- unique(c(seq(0.1,1.5, by = 0.025), seq(1.5, 5, by = 0.5)))
-delta.seq <- unique(c(seq(0.25,1.25, by = 0.025)))
+delta.seq <- unique(c(seq(0.75,1.25, by = 0.025)))
 
 # File name indicating delta range
 file.name <- paste0(
@@ -277,6 +274,7 @@ ipsi.res <- npcausal::ipsi(y, a, x.trt, x.out, time, id, delta.seq, nsplits = 3)
 box_save(ipsi.res,
          dir_id = box.dir,
          file_name = file.name,
-         description = paste0("IPS results for delta spanning ",
-                             delta.seq[1], " to ", delta.seq[length(delta.seq)],
-                            ", using `", yout.which, "` for year of leaving work."))
+         description = paste0(
+           "IPS results for delta spanning ",
+           delta.seq[1], " to ", delta.seq[length(delta.seq)],
+           ", using `", yout.which, "` for year of leaving work."))

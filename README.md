@@ -4,26 +4,40 @@ Repository to hold code for UAW GM IPS manuscript
 
 ## Change log
 
+## May 8, 2020
+
+- `munge/plot_ips.R` renamed to `reports/2020-04-23_ips-curve.R`
+- `munge/08_ips-data-70s.R`
+	- Lines 166-172: Filtering by year of leaving work moved downstream in the workflow, to facilitate construction of Tables 1 and 2 (summaries of population characteristics)
+- `reports/2020-05-06_tables.Rmd`
+	- New code for generating Tables 1 and 2
+	- Question: Should Table 2 (summary of population characteristics of the analytic cohort) summarize time after 1994?
+
+### April 27, 2020
+
+- `munge/plot_ips.R`
+	- Lines 23-27, 44-45, 47, 63-64: Update IPS effect curve to include both point-wise and uniform confidence band estimates
+
 ### April 24, 2020
 
-- `08_ips-data-70s.R`
-	- Line 30 and 35: Avoid merge conflict when using `YOUT16` for year of leaving work
+- `munge/08_ips-data-70s.R`
+	- Lines 30 and 35: Avoid merge conflict when using `YOUT16` for year of leaving work
 	- Line 269: Defining a narrowing range for $\delta$
 	- Line 271: Creates a file name for the output of `npcausal::ipsi()` that includes information on the range of $\delta$
 	- Line 277: Added file description when saving output of `npcausal::ipsi()` to Box
 
 ### April 23, 2020
 
-- `08_ips-data-70s.R`
+- `munge/08_ips-data-70s.R`
 	- Line 10: Create a "switch" `yout.which` for picking variable to use as year of employment end: `YOUT16` _or_ `year_left_work`
 	- Line 14: Upload intermediate data steps to different Box directories, depending on which end of employment variable was selected
 	- Script sourced again, and all `box_read()` statements updated
 
 ### April 22, 2020
 
-- `2020-07-21_time-varying-function-nonpar.R`
+- `munge/2020-07-21_time-varying-function-nonpar.R`
 	- Re-naming variables created by the function to explicitly reflect number of days or proportion of year
-- `08_ips-data-70s.R`
+- `munge/08_ips-data-70s.R`
 	- Line 32: Now allowing people to enter cohort after 1970
 	- Line 56: Run `time_varying_function_nonpar()` for entire work history (for selected `STUDYNO`s)
 	- Line 93: Get rid of rows after death/year of leaving work, rows before entry into cohort, and rows after 1994
@@ -53,22 +67,22 @@ Repository to hold code for UAW GM IPS manuscript
 
 ### April 21, 2020
 
-- `./munge/07_adding-work-history.R`
+- `munge/07_adding-work-history.R`
 	- Line 41: Collapsed duplicated entries
 	- Line 89: Get `STUDYNO`s for those whose final and penultimate entries are both non-numeric with `DATEIN==DATEOUT`
 	- Line 120: Ignore last record if both the final and penultimate entries are non-numeric with `DATEIN==DATEOUT`
 	- Line 175: Create `year_left_work`, taking into account all that was discussed
 	- Changed file name passed to `box_save()`
-- `08_ips-data-70s.R`
+- `munge/08_ips-data-70s.R`
 	- Line 15: Load `dta_end_of_employment`
 	- Line 17: Merge `year_left_work` much earlier in the workflow so that we can filter `cohort` by the newly-created end of employment year instead of `YOUT16`
 	- Line 27: Comment out filtering step by age
 	- Line 64, 85, 158: Save to `Box`, not locally
 	- Line 90: Make sure important time-invariant variables are inherited for all folks
 	- Line 156: using `year_left_work` instead of `YOUT16`
-- `2019-07-15_time-varying-function-nonpar.R`
+- `munge/2019-07-15_time-varying-function-nonpar.R`
 	- Added default arguments for easier troubleshooting
-- `2020-07-21_time-varying-function-nonpar.R`
+- `munge/2020-07-21_time-varying-function-nonpar.R`
 	- Fast implementation with `data.table`
 	- Leap years accounted for, to avoid issue where certain years were duplicated
 		- See `STUDYNO` 100017

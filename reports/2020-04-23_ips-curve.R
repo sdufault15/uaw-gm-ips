@@ -103,8 +103,8 @@ ips.ggplot <- ggplot(ips.ggtab,
 	coord_cartesian(xlim = c(0.775, 1.225),
 									ylim = c(150, 550)) +
 	labs(
-		x = "Shift in OR of the PS for job loss $\\delta$",
-		y = "Suicide and overdose mortality $\\Psi(\\delta)$"
+		x = "Leaving work odds ratio, $\\delta$",
+		y = "Suicide and overdose mortality, $\\Psi(\\delta)$"
 	) +
 	theme_bw() +
 	theme(

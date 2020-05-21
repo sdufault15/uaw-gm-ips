@@ -17,7 +17,16 @@ yout.which <- "year_left_work"
 
 # Load analytic data based on which variable used as year of employment end
 dta_ips <- box_read(ifelse(yout.which == "YOUT16", 657149129798, 656285655983))
-dta_full <- box_read(ifelse(yout.which == "YOUT16", 657147487614, 656275470844))
+cohort_long <- box_read(488427532080) # the long dataset
+	# box_read(ifelse(yout.which == "YOUT16", 657147487614, 656275470844))
+dta_end_of_employment <- box_read(656270359800) # Job history
+
+# Merge end of employment
+cohort_long <- full_join(
+  (if (yout.which == "YOUT16") {cohort_long %>% select(-yout.which)} else {cohort_long}),
+  (dta_end_of_employment[,c("STUDYNO", yout.which)] %>% distinct),
+  by = "STUDYNO")
+cohort_long$filler <- 0
 
 # Helper function to format dates
 gm.to.date <- function(x) {
@@ -41,7 +50,7 @@ get.tab1 <- function(
 	
 	df <- as.data.table(as.data.frame(df))
 	
-	setorder(df, STUDYNO, year)
+	setorder(df, STUDYNO, cal_obs)
 	
 	# Individual-level summary
 	tab1.sum <- df[,.(
@@ -57,20 +66,22 @@ get.tab1 <- function(
 		'\\hspace{10pt}Male' = ifelse(sex[1] == 'M' | sex[1] == 1, 1, 0),
 		'\\hspace{10pt}Female' = ifelse(sex[1] == 'F' | sex[1] == 0, 1, 0),
 		"\\textbf{Plant}$^\\natural$, $n$ (\\%)" = NA,
-		"\\hspace{10pt}Plant 1" = as.numeric(names(sort(table(PLANT[year < 1995]), decreasing = T)[1])) == 1,
-		"\\hspace{10pt}Plant 2" = as.numeric(names(sort(table(PLANT[year < 1995]), decreasing = T)[1])) == 2,
-		"\\hspace{10pt}Plant 3" = as.numeric(names(sort(table(PLANT[year < 1995]), decreasing = T)[1])) == 3,
+		"\\hspace{10pt}Plant 1" = as.numeric(names(sort(table(PLANT[cal_obs < 1995]), decreasing = T)[1])) == 1,
+		"\\hspace{10pt}Plant 2" = as.numeric(names(sort(table(PLANT[cal_obs < 1995]), decreasing = T)[1])) == 2,
+		"\\hspace{10pt}Plant 3" = as.numeric(names(sort(table(PLANT[cal_obs < 1995]), decreasing = T)[1])) == 3,
 		'\\textbf{Complete work records}' = as.numeric(floor(year_left_work[1]) < 1995),
 		
 		# Years since follow-up
-		# "\\textbf{Years of follow-up}" = min(yod09[1], 2016, na.rm = T) - YIN16[1] - 3,
+		# "\\textbf{Years of follow-up}" = min(yod15[1], 2016, na.rm = T) - YIN16[1] - 3,
 		'\\textbf{Year of hire}' = floor(YIN16[1]),
 		'\\textbf{Age at hire}' = YIN16[1] - YOB[1],
 		'\\textbf{Year of birth}' = floor(YOB[1]),
 		'\\textbf{Year of worker exit}' = floor(year_left_work[1]),
 		'\\textbf{Age at worker exit}' = year_left_work[1] - YOB[1],
-		'\\textbf{Age at death among deceased}' = yod09[1] - YOB[1],
-		'\\textbf{Year of death among deceased}' = floor(yod09[1])
+		'\\textbf{Age at death among deceased}' = if (yod15[1] < 2016) {
+			yod15[1] - YOB[1]} else {NaN},
+		'\\textbf{Year of death among deceased}' = if (yod15[1] < 2016) {
+			floor(yod15[1])} else {NaN}
 	),
 	by = .(STUDYNO)][,-'STUDYNO']
 	
@@ -173,7 +184,7 @@ get.tab1 <- function(
 						 prettyNum(n_distinct(df$STUDYNO), big.mark = '\\\\,'),
 						 '$'),
 			paste0('$(',
-						 prettyNum(sum(df[,.(py = min(yod09[1], 2016, na.rm = T) - YIN16[1] - 3), by = .(STUDYNO)]$py), big.mark = '\\\\,'),
+						 prettyNum(round(sum(df[,.(py = min(yod15[1], 2016, na.rm = T) - YIN16[1] - 3), by = .(STUDYNO)]$py), 0), big.mark = '\\\\,'),
 						 ')$')
 		),
 		tab1
@@ -216,11 +227,11 @@ poison.tab2 <- get.tab1(df = filter(dta_ips, poison == 1, filler == 0), col.name
 tab2 <- cbind(all.tab2, suicide.tab2, poison.tab2)
 
 # Get Table 1 for full FULL cohort
-all.tab1 <- get.tab1(df = dta_full, col.name = "Full cohort", table_engine = "pander")
+all.tab1 <- get.tab1(df = cohort_long, col.name = "Full cohort", table_engine = "pander")
 # For suicide cases in the FULL cohort
-suicide.tab1 <- get.tab1(df = filter(dta_full, suicide == 1), col.name = "Suicide cases", table_engine = "pander")
+suicide.tab1 <- get.tab1(df = filter(cohort_long, suicide == 1), col.name = "Suicide cases", table_engine = "pander")
 # For overdose cases in the FULL cohort
-poison.tab1 <- get.tab1(df = filter(dta_full, poison == 1), col.name = "Fatal overdose cases", table_engine = "pander")
+poison.tab1 <- get.tab1(df = filter(cohort_long, poison == 1), col.name = "Fatal overdose cases", table_engine = "pander")
 
 tab1 <- cbind(all.tab1, suicide.tab1, poison.tab1)
 

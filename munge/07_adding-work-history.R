@@ -175,7 +175,15 @@ dta_end_of_employment <- dta_end_of_employment %>%
   mutate(year_left_work = ifelse(STUDYNO %in% final.record.off$STUDYNO,
                                  ifelse(!STUDYNO %in% unlist(final.penultimate.record.off), yearOUT[t == maxT], yearOUT[t == (maxT - 1)]),
                                  ifelse(STUDYNO %in% final.record.off.censored$STUDYNO, yearIN[t == maxT] + 10,
-                                        ifelse(STUDYNO %in% censored$STUDYNO, 1995, yearOUT[t == maxT])))) %>% 
+                                        ifelse(STUDYNO %in% censored$STUDYNO, 1995, yearOUT[t == maxT]))),
+         month_left_work = ifelse(STUDYNO %in% final.record.off$STUDYNO,
+                                 ifelse(!STUDYNO %in% unlist(final.penultimate.record.off), monthOUT[t == maxT], monthOUT[t == (maxT - 1)]),
+                                 ifelse(STUDYNO %in% final.record.off.censored$STUDYNO, monthIN[t == maxT] + 10,
+                                        ifelse(STUDYNO %in% censored$STUDYNO, 1995, monthOUT[t == maxT]))),
+         day_left_work = ifelse(STUDYNO %in% final.record.off$STUDYNO,
+                                 ifelse(!STUDYNO %in% unlist(final.penultimate.record.off), dayOUT[t == maxT], dayOUT[t == (maxT - 1)]),
+                                 ifelse(STUDYNO %in% final.record.off.censored$STUDYNO, dayIN[t == maxT] + 10,
+                                        ifelse(STUDYNO %in% censored$STUDYNO, 1995, dayOUT[t == maxT])))) %>% 
   ungroup()
 
 box_save(dta_end_of_employment, 

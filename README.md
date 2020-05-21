@@ -4,6 +4,42 @@ Repository to hold code for UAW GM IPS manuscript
 
 ## Change log
 
+## May 21, 2020
+
+- `munge/02_subsetting-cohort.R`
+	- Line 6: Use mortality follow-up through 2015, not through 2009
+- `munge/03_demographic-covariate-cleaning.R`
+	- Lines 12-15: Move cohort subsetting using end of employment year to later in the workflow
+	- Lines 20, 22, 23, 31: Use mortality follow-up through 2015, not through 2009
+- `munge/05_incoporating-suicide-overdose-codes.R`
+	- Lines 12-15, 18, 20-22, 29, 30: Use mortality follow-up through 2015, not through 2009
+- `munge/06_creating-long-dataset.R`
+	- Line 6: Use mortality follow-up through 2015, not through 2009
+- `munge/07_adding-work-history.R`
+	- Lines 187-186: Add variables `month_left_work` and `day_left_work` to go with `year_left_work`
+- `munge/08_ips-data-70s.R`
+	- Lines 14-16: Add switch `augmented_ps` to allow user to run IPS with or without year of hire, race, and sex in the PS model
+	- Lines 34-26, 41-43: Incorporate month and day of leaving work
+	- Lines 46-75: Remove people who have been employed for less than 3 years using either `YOUT16` or the new date of leaving work variable (depends on `year_left_work`, `month_left_work`, and `day_left_work`)
+		- Note that a new helper function `date.to.gm` is defined, which maps objects of class `Date` to `numeric` objects indicating calendar year in decimal form
+	- Lines 77-85: By default, run `time_varying_function_nonpar()`
+	- Lines 123, 124, 129, 130: Use mortality follow-up through 2015, not through 2009
+	- Lines 282-285: Depending on the value of `augmented_ps`, include (or not) `YIN16`, `sex`, and `race` in the tratment model
+	- Lines 309-311, 320, 321: Give new file name and description to IPS run with `augmented_ps = T`
+- Deleted un-used script in `munge`
+- `reports/2020-04-23_ips-curve.R`
+	- Lines 7-10: Unify `ggplot` theme across the 4 figures
+	- Lines 15-17, 38, 39: Add switch `augmented_ps` to allow user to load IPS results with or without year of hire, race, and sex in the PS model
+	- Lines 41-121: Minor changes in `ggplot` appearance
+	- Lines 161-162, 320, 321: Give new file name and description to Figure 4 with `augmented_ps = T`
+	- Lines 174, 175, 152, 183: Include `magick` in system commands to produce image files from the compiled TeX
+- `reports/2020-05-06_tables.Rmd`
+	- Lines 20-29, 230, 232, 234: Change working file for the "full cohort" to a version from earlier in the workflow; merge end of employment variable
+	- Line 53, 69-71: Use `cal_obs`, which was created earlier in the workflow, not `year`, which was created using `time_varying_function_nonpar()` (and is therefore NA for years not represented in the work history files)
+	- Line 75, 81-84, 187: Use mortality follow-up through 2015, not through 2009
+- `reports/2020-05-19_descriptive-figures.R`
+	- New script, adapted from `2019-07-10_figures.Rnw`, for making Figures 1, 2, and 3
+
 ## May 8, 2020
 
 - `munge/plot_ips.R` renamed to `reports/2020-04-23_ips-curve.R`

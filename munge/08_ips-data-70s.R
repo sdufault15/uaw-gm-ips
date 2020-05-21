@@ -11,6 +11,9 @@ library(here)
 yout.which <- "year_left_work"
 # yout.which <- "YOUT16"
 
+# Include baseline covariates YIN16, race, and sex?
+augmented_ps <- F
+
 # Which Box directory
 box.dir <- ifelse(yout.which == "YOUT16",
                   111331236161,
@@ -28,26 +31,58 @@ dta_end_of_employment <- box_read(656270359800) # Job history
 # Merge end of employment
 cohort <- full_join(
   (if (yout.which == "YOUT16") {cohort %>% select(-yout.which)} else {cohort}),
-  (dta_end_of_employment %>% select(STUDYNO, yout.which) %>% distinct),
+  (dta_end_of_employment %>% select(STUDYNO, yout.which,
+                                    if (yout.which == "year_left_work") {"month_left_work"},
+                                    if (yout.which == "year_left_work") {"day_left_work"}) %>% distinct),
   by = "STUDYNO")
 
 cohort_long <- full_join(
   (if (yout.which == "YOUT16") {cohort_long %>% select(-yout.which)} else {cohort_long}),
-  (dta_end_of_employment[,c("STUDYNO", yout.which)] %>% distinct),
+  (dta_end_of_employment[,c("STUDYNO", yout.which,
+                            if (yout.which == "year_left_work") {"month_left_work"},
+                            if (yout.which == "year_left_work") {"day_left_work"})] %>% distinct),
   by = "STUDYNO")
 
-# Build person-year dataset
-# # COMMENTED TO SAVE TIME - FEEL FREE TO RERUN IF THE COHORT CHANGES
-# dta_person_year_full <- time_varying_function_nonpar(dta_end_of_employment)
-# dta_person_year_full <- dta_person_year_full %>%
-#   distinct()
-# box_save(dta_person_year_full,
-#          dir_id = box.dir,
-#          file_name = "2020-04-21_full-person-year-data.RData",
-#          description = "Long form version of the cohort dataset with time-varying covariates.")
+# Remove people who have been employed for less than 3 years
+if (yout.which == "year_left_work") {
+  # Make decimal year of leaving work corresponding to the new leave work date
+  date.to.gm <- function(x = "2013-01-01") {
+    require(lubridate)
+    as.numeric(
+      year(x) +
+        time_length(difftime(x, as.Date(paste0(year(x), "-01-01"))), "year") / (
+          time_length(difftime(as.Date(paste0(year(x), "-12-31")),
+                               as.Date(paste0(year(x), "-01-01"))), "year"))
+    )}
+  
+  cohort$year_left_work.gm <- 1995
+  cohort[cohort$month_left_work != 1995, "year_left_work.gm"] <- mutate(cohort[cohort$month_left_work != 1995,],
+                                                                        year_left_work.gm = paste(year_left_work, month_left_work, day_left_work, sep = "/")
+  ) %>% mutate(year_left_work.gm = date.to.gm(as.Date(year_left_work.gm))) %>%
+    select(year_left_work.gm) %>% unlist
+  
+  cohort_long <- full_join(cohort_long,
+                           cohort[,c("STUDYNO", "year_left_work.gm")],
+                           by = "STUDYNO")
+  
+  # Filter
+  cohort %>% filter(round(year_left_work.gm - YIN16, 1) >= 3) -> cohort
+  cohort_long %>% filter(round(year_left_work.gm - YIN16, 1) >= 3) -> cohort_long
+} else {
+  cohort %>% filter(round(YOUT16 - YIN16, 1) >= 3) -> cohort
+  cohort_long %>% filter(round(YOUT16 - YIN16, 1) >= 3) -> cohort_long
+}
 
-# dta_person_year_full_1970s <- box_read(ifelse(yout.which == "YOUT16", 657154373362, 656269683749))
-dta_person_year_full <- box_read(ifelse(yout.which == "YOUT16", 661842322105, 661838165913))
+# Build person-year dataset
+dta_person_year_full <- time_varying_function_nonpar(dta_end_of_employment)
+dta_person_year_full <- dta_person_year_full %>%
+  distinct()
+box_save(dta_person_year_full,
+         dir_id = box.dir,
+         file_name = "2020-04-21_full-person-year-data.RData",
+         description = "Long form version of the cohort dataset with time-varying covariates.")
+
+# dta_person_year_full <- box_read(ifelse(yout.which == "YOUT16", 661842322105, 661838165913))
 
 # Drop person-time before 1970
 # Identify those who were in the cohort by 1970
@@ -85,14 +120,14 @@ n_distinct(dta_ips_long$STUDYNO)
 dta_person_year_full <- dta_person_year_full %>%
   mutate(cal_obs = year)
 dta_ips <- left_join(dta_person_year_full, dta_ips_long, by = c("STUDYNO", "cal_obs"))
-dta_ips <- left_join(select(dta_ips, -YOB, -YIN16, -race, -sex, - yod09, -yout.which),
-                     select(cohort, STUDYNO, YOB, YIN16, race, sex, yod09, yout.which),
+dta_ips <- left_join(select(dta_ips, -YOB, -YIN16, -yrin16, -race, -sex, - yod15, -yout.which),
+                     select(cohort, STUDYNO, YOB, YIN16, yrin16, race, sex, yod15, yout.which),
                      by= c("STUDYNO"))
 
 # Get rid of rows after death, rows before yrin16, rows after 1994
 dta_ips <- dta_ips %>% filter(
-  cal_obs <= floor(get(yout.which)),
-  cal_obs <= floor(yod09),
+  cal_obs <= apply(data.frame(floor(get(yout.which)), 1994), 1, min),
+  cal_obs <= apply(data.frame(floor(yod15), 2015), 1, min),
   cal_obs >= floor(yrin16))
 
 library(data.table)
@@ -244,7 +279,10 @@ dta_ips <- ungroup(arrange(dta_ips, STUDYNO, cal_obs))
 x.trt <- dta_ips %>% select(
   yearWork,
   prop.days.mach, prop.days.assembly, prop.days.off,
-  PLANT, calendar_year, age_obs, pension.eligibility, cumulative_days_off
+  PLANT, calendar_year, age_obs, pension.eligibility, cumulative_days_off,
+  if (augmented_ps) {"YIN16"},
+  if (augmented_ps) {"sex"},
+  if (augmented_ps) {"race"}
 ) %>% data.matrix()
 x.out <- dta_ips %>% select(
   YIN16,
@@ -268,7 +306,9 @@ delta.seq <- unique(c(seq(0.75,1.25, by = 0.025)))
 # File name indicating delta range
 file.name <- paste0(
   "ipsi_", round(delta.seq[1], digits = 2), "-",
-  round(delta.seq[length(delta.seq)], digits = 2), ".RData")
+  round(delta.seq[length(delta.seq)], digits = 2),
+  ifelse(augmented_ps, "_augmented-PS", ""),
+  ".RData")
 
 ipsi.res <- npcausal::ipsi(y, a, x.trt, x.out, time, id, delta.seq, nsplits = 3)
 box_save(ipsi.res,
@@ -277,4 +317,5 @@ box_save(ipsi.res,
          description = paste0(
            "IPS results for delta spanning ",
            delta.seq[1], " to ", delta.seq[length(delta.seq)],
-           ", using `", yout.which, "` for year of leaving work."))
+           ", using `", yout.which, "` for year of leaving work.",
+           ifelse(augmented_ps, " PS model includes year of hire, race, and sex.", "")))

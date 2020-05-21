@@ -4,9 +4,16 @@
 # Plot IPS results
 
 library(here); library(boxr); box_auth(); library(tidyverse); library(tikzDevice)
+library(ggthemr)
+ggthemr(palette = "fresh",
+        layout = "clean")
+
 # Pick variable to use for year of employment end
 yout.which <- "year_left_work"
 # yout.which <- "YOUT16"
+
+# Include baseline covariates YIN16, race, and sex?
+augmented_ps <- F
 
 # Load analytic data based on which variable used as year of employment end
 dta_ips <- box_read(ifelse(yout.which == "YOUT16", 657149129798, 656285655983))
@@ -28,7 +35,8 @@ y <- dta_ips %>% mutate(SIM = ifelse(suicide == 1 | poison == 1, 1, 0)) %>% sele
 
 # Load IPS results
 ipsi.res <- box_read(
-	ifelse(yout.which == "YOUT16", 657188392651, 657663070290))
+	ifelse(yout.which == "YOUT16", 657188392651, ifelse(
+		augmented_ps, 667528945939, 657663070290)))
 
 # Make plot-ready table
 ips.ggtab <- rbind(
@@ -61,7 +69,7 @@ ips.ggplot <- ggplot(ips.ggtab,
 		fill = `Inference:`
 	),
 	# fill = 'grey',
-	alpha = 0.2) +
+	alpha = 0.15) +
 	# Arrows point from annotation to curve
 	geom_segment(data = filter(ips.ggtab[
 		# Present every other estimate and exclude the first
@@ -106,7 +114,8 @@ ips.ggplot <- ggplot(ips.ggtab,
 		x = "Leaving work odds ratio, $\\delta$",
 		y = "Suicide and overdose mortality, $\\Psi(\\delta)$"
 	) +
-	theme_bw() +
+	guides(fill = guide_legend(override.aes = list(alpha = 0.5))) +
+	theme_classic() +
 	theme(
 		axis.text = element_text(size = 7),
 		axis.title = element_text(size = 8),
@@ -149,7 +158,8 @@ options(
 
 # Render plot in TeX
 directory.name <- here::here("graphs")
-file.name <- "2020-05-06_self-inflicted-mortality.tex"
+file.name <- paste0("2020-05-06_self-inflicted-mortality",
+										ifelse(augmented_ps, "_augmented-PS", ""), ".tex")
 tikz(paste0(directory.name, "/", file.name),
 		 standAlone = T, width = 4, height = 3)
 print(ips.ggplot)
@@ -161,14 +171,16 @@ if (!grepl("Darwin", Sys.info()['sysname'], ignore.case = T)) {
 	system(paste(
 		paste0("cd \"", directory.name, "\"\n"),
 		paste0("for %i in (", file.name, ") do"),
-		"lualatex $i; del %~ni.aux;",
+		"lualatex $i; del %~ni.aux; del %~ni.log;",
+		paste0("magick -density ", 800, " \"%~ni.pdf\" \".\\%~ni.png\""),
 		sep = " "), timeout = 20)
 } else {
 	# *nix
 	system(paste(
 		paste0("cd \"", directory.name, "\";"),
 		paste0("for i in ", file.name,"; do {"),
-		"lualatex $i; rm ${i%.tex}.aux;",
+		"lualatex $i; rm ${i%.tex}.aux; rm ${i%.tex}.log;",
+		paste0("magick -density ", 800, " \"${i%.tex}.pdf\" \"${i%.tex}.png\";"),
 		"} done", sep = "\n"), timeout = 20)
 }
 

@@ -4,16 +4,16 @@
 # Plot IPS results
 
 library(here); library(boxr); box_auth(); library(tidyverse); library(tikzDevice)
-library(ggthemr)
-ggthemr(palette = "fresh",
-        layout = "clean")
+# library(ggthemr)
+# ggthemr(palette = "fresh",
+#         layout = "clean")
 
 # Pick variable to use for year of employment end
 yout.which <- "year_left_work"
 # yout.which <- "YOUT16"
 
 # Include baseline covariates YIN16, race, and sex?
-augmented_ps <- F
+augmented_ps <- T
 
 # Load analytic data based on which variable used as year of employment end
 dta_ips <- box_read(ifelse(yout.which == "YOUT16", 657149129798, 656285655983))

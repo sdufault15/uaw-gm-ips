@@ -4,6 +4,23 @@ Repository to hold code for UAW GM IPS manuscript
 
 ## Change log
 
+## July 7, 2020
+
+- `munge/08_ips-data-70s.R`
+	- Changed name of flag `augmented_ps` to `full_ps`
+- `reports/2020-04-23_ips-curve.R`
+	- Script specifying `ggplot2` theme elements and `tikz` options moved to new file
+	- Line 120: the theme for Figure 4 is now based on `theme_bw()` and not `theme_classic()`
+- `reports/2020-05-19_descriptive_figures.R`
+	- Figures now follow consistent aesthetic themes
+	- Script specifying `ggplot2` theme elements and `tikz` options moved to new file
+	- Lines 124-152: Greatly simplified data manipulation steps for plotting
+	- Lines 148-50: New helper functions `get.center()` and `get.widths()` to return summary measures of quantile cutpoints
+	- Lines 232-240: New helper function `get.sim.tab()` for getting counts and rates from a grouped long dataset
+	- Lines 301-381: New Figure 3: self-injury mortality rates by plant over the period of downsizing: years 1970--2015
+- `reports/ggplot-theme.R`
+	- New file for `ggplot2` theme elements and `tikz` options
+
 ## May 21, 2020
 
 - `munge/02_subsetting-cohort.R`

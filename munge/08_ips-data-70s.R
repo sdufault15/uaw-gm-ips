@@ -12,7 +12,7 @@ yout.which <- "year_left_work"
 # yout.which <- "YOUT16"
 
 # Include baseline covariates YIN16, race, and sex?
-augmented_ps <- F
+full_ps <- F
 
 # Which Box directory
 box.dir <- ifelse(yout.which == "YOUT16",
@@ -280,9 +280,9 @@ x.trt <- dta_ips %>% select(
   yearWork,
   prop.days.mach, prop.days.assembly, prop.days.off,
   PLANT, calendar_year, age_obs, pension.eligibility, cumulative_days_off,
-  if (augmented_ps) {"YIN16"},
-  if (augmented_ps) {"sex"},
-  if (augmented_ps) {"race"}
+  if (full_ps) {"YIN16"},
+  if (full_ps) {"sex"},
+  if (full_ps) {"race"}
 ) %>% data.matrix()
 x.out <- dta_ips %>% select(
   YIN16,
@@ -307,7 +307,7 @@ delta.seq <- unique(c(seq(0.75,1.25, by = 0.025)))
 file.name <- paste0(
   "ipsi_", round(delta.seq[1], digits = 2), "-",
   round(delta.seq[length(delta.seq)], digits = 2),
-  ifelse(augmented_ps, "_augmented-PS", ""),
+  ifelse(full_ps, "_full-PS", ""),
   ".RData")
 
 ipsi.res <- npcausal::ipsi(y, a, x.trt, x.out, time, id, delta.seq, nsplits = 3)
@@ -318,4 +318,4 @@ box_save(ipsi.res,
            "IPS results for delta spanning ",
            delta.seq[1], " to ", delta.seq[length(delta.seq)],
            ", using `", yout.which, "` for year of leaving work.",
-           ifelse(augmented_ps, " PS model includes year of hire, race, and sex.", "")))
+           ifelse(full_ps, " PS model includes year of hire, race, and sex.", "")))

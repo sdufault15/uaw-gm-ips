@@ -4,6 +4,7 @@
 # Plot IPS results
 
 library(here); library(boxr); box_auth(); library(tidyverse); library(tikzDevice)
+source(here::here("reports", "ggplot-theme.R"))
 # library(ggthemr)
 # ggthemr(palette = "fresh",
 #         layout = "clean")
@@ -13,7 +14,7 @@ yout.which <- "year_left_work"
 # yout.which <- "YOUT16"
 
 # Include baseline covariates YIN16, race, and sex?
-augmented_ps <- T
+full_ps <- T
 
 # Load analytic data based on which variable used as year of employment end
 dta_ips <- box_read(ifelse(yout.which == "YOUT16", 657149129798, 656285655983))
@@ -36,7 +37,7 @@ y <- dta_ips %>% mutate(SIM = ifelse(suicide == 1 | poison == 1, 1, 0)) %>% sele
 # Load IPS results
 ipsi.res <- box_read(
 	ifelse(yout.which == "YOUT16", 657188392651, ifelse(
-		augmented_ps, 667528945939, 657663070290)))
+		full_ps, 667528945939, 657663070290)))
 
 # Make plot-ready table
 ips.ggtab <- rbind(
@@ -45,11 +46,12 @@ ips.ggtab <- rbind(
 	mutate(ipsi.res$res,
 				 `Inference:` = "Uniform 95\\% CI"))
 
-# Plot results
-ips.ggplot <- ggplot(ips.ggtab,
-										 aes(x = increment,
-										 		y = est * N
-										 )) +
+# Plot results ####
+ips.ggplot <- ggplot(
+	ips.ggtab,
+	aes(x = increment,
+			y = est * N
+	)) +
 	# geom_point() +
 	geom_line() +
 	# Draw dotted line at OR shift = 1.0
@@ -115,51 +117,20 @@ ips.ggplot <- ggplot(ips.ggtab,
 		y = "Suicide and overdose mortality, $\\Psi(\\delta)$"
 	) +
 	guides(fill = guide_legend(override.aes = list(alpha = 0.5))) +
-	theme_classic() +
+	theme_bw() + mytheme +
 	theme(
-		axis.text = element_text(size = 7),
-		axis.title = element_text(size = 8),
-		legend.box.background = element_rect(colour = "black"),
-		legend.title = element_blank(),
-		legend.text = element_text(size = 7),
-		legend.justification = "right",
-		# Legend position is relative to plot window:
-		#   c(0,0) is bottom left, c(1,1) is top right
-		legend.position = c(0.305, 0.935),
-		legend.margin = margin(0, 5, 5, 5, "pt"),
-		legend.box.margin = margin(0, 0, 0, 0, "pt"),
-		legend.key.size = unit(6, "pt")
-	)
+		legend.position = c(0.305, 0.938),
+		legend.margin = margin(2.35, 5, 5, 5, "pt"),
+		panel.grid = element_blank(),
+		legend.spacing.y = unit(2.1, "pt"),
+		legend.key = element_rect(size = 20))
 
 ips.ggplot
 
-# Tikz/lualatex options
-options(
-	tikzDefaultEngine = 'luatex',
-	tikzLualatexPackages = c(
-		"\\usepackage{amssymb}",
-		"\\usepackage[no-math]{fontspec}\n",
-		paste0(
-			"\\setmainfont{Arial}",
-			ifelse(Sys.info()["sysname"] == "Darwin",
-						 "\n",
-						 "[Extension = .ttf,
-			UprightFont = *,
-			BoldFont = *bd,
-			talicFont = *i,
-			BoldItalicFont = *bi]\n")),
-		"\\usepackage[italic]{mathastext}",
-		"\\usepackage{tikz}\n",
-		"\\usepackage[active,tightpage,psfixbb]{preview}\n",
-		"\\PreviewEnvironment{pgfpicture}\n",
-		"\\setlength\\PreviewBorder{0pt}\n"
-	)
-)
-
 # Render plot in TeX
 directory.name <- here::here("graphs")
-file.name <- paste0("2020-05-06_self-inflicted-mortality",
-										ifelse(augmented_ps, "_augmented-PS", ""), ".tex")
+file.name <- paste0("Figure 4",
+										ifelse(full_ps, " (full-PS)", ""), ".tex")
 tikz(paste0(directory.name, "/", file.name),
 		 standAlone = T, width = 4, height = 3)
 print(ips.ggplot)
@@ -176,22 +147,22 @@ if (!grepl("Darwin", Sys.info()['sysname'], ignore.case = T)) {
 		sep = " "), timeout = 20)
 } else {
 	# *nix
-	system(paste(
+	system((paste(
 		paste0("cd \"", directory.name, "\";"),
-		paste0("for i in ", file.name,"; do {"),
-		"lualatex $i; rm ${i%.tex}.aux; rm ${i%.tex}.log;",
+		paste0("for i in \"", file.name,"\"; do {"),
+		"lualatex \"$i\"; rm \"${i%.tex}.aux\"; rm \"${i%.tex}.log\";",
 		paste0("magick -density ", 800, " \"${i%.tex}.pdf\" \"${i%.tex}.png\";"),
-		"} done", sep = "\n"), timeout = 20)
+		"} done", sep = "\n")), timeout = 20)
 }
 
-# Print results
-ipsi.res$res.ptwise %>% mutate(
-	`Number of deaths` = prettyNum(est * N),
-	`Lower bound` = prettyNum(ci.ll * N),
-	`Upper bound` = prettyNum(ci.ul * N)
-) %>% select(
-	increment,
-	`Number of deaths`,
-	`Lower bound`,
-	`Upper bound`
-)
+# # Print results
+# ipsi.res$res.ptwise %>% mutate(
+# 	`Number of deaths` = prettyNum(est * N),
+# 	`Lower bound` = prettyNum(ci.ll * N),
+# 	`Upper bound` = prettyNum(ci.ul * N)
+# ) %>% select(
+# 	increment,
+# 	`Number of deaths`,
+# 	`Lower bound`,
+# 	`Upper bound`
+# )

@@ -53,6 +53,8 @@ pretty.cut <- function(x = c("(35, 45]",
 
 # Load analytic data based on which variable used as year of employment end
 cohort_long <- box_read(488427532080) # the long dataset
+names(cohort_long)[names(cohort_long) == "race"] <- "RACE"
+
 dta_end_of_employment <- box_read(656270359800) # Job history
 # Load cohort data
 cohort <- box_read(485768272681)
@@ -218,14 +220,14 @@ ggplot(data.frame()) +
 
 fig1
 
-tikz(
-	paste0(directory.name, "/Figure 1.tex"),
-	standAlone = T,
-	width = 4,
-	height = 3
-)
-print(fig1)
-dev.off()
+# tikz(
+# 	paste0(directory.name, "/Figure 1.tex"),
+# 	standAlone = T,
+# 	width = 4,
+# 	height = 3
+# )
+# print(fig1)
+# dev.off()
 
 # Figure 2 ####
 # The estimated incidence rates of overdose and suicide by calendar time in the full UAW-GM cohort.
@@ -236,11 +238,13 @@ get.sim.tab <- function(tibble) {
 		n_py = length(STUDYNO),
 		Suicide = sum(suicide)/length(STUDYNO),
 		`Fatal overdose` = sum(poison)/length(STUDYNO),
-		Plant = PLANT[1])
+		`Suicide and fatal overdose` = sum(poison + suicide)/length(STUDYNO),
+		Plant = PLANT[1],
+		Race = ifelse(RACE[1] == 0, "Black", "White"))
 	
 	sim.pivot <- pivot_longer(
 		sim.tab,
-		c("Suicide", "Fatal overdose"),
+		c("Suicide", "Fatal overdose", "Suicide and fatal overdose"),
 		names_to = "outcome",
 		values_to = "rate")
 	
@@ -261,7 +265,10 @@ sim.binned.tab <- cohort_long %>%
 												 include.lowest = T)) %>%
 	get.sim.tab()
 
-sim.binned.tab$means <- rep(sim.center, each = 2)
+sim.binned.tab$means <- rep(sim.center, each = 3)
+
+sim.binned.tab <- filter(sim.binned.tab, outcome != "Suicide and fatal overdose")
+sim.tab <- filter(sim.tab, outcome != "Suicide and fatal overdose")
 
 ggplot(data.frame()) +
 	geom_point(
@@ -282,9 +289,9 @@ ggplot(data.frame()) +
 	) +
 	xlab("Calendar Year") +
 	ylab("Suicide and Fatal Overdose Rate\nper 100,000 person-years") +
-	coord_cartesian(ylim = c(0, 37)) +
+	# coord_cartesian(ylim = c(0, 37)) +
 	theme.tmp + theme(legend.title = element_blank(),
-										legend.position = c(0.291, 0.9165)) -> fig2
+										legend.position = c(0.291, 0.916)) -> fig2
 
 fig2
 
@@ -299,28 +306,29 @@ dev.off()
 
 # Figure 3 ####
 # Examines unadjusted self-injury mortality rates by plant over the period of downsizing
+cohort_long_70s <- filter(cohort_long, cal_obs >= 1970)
 sim_by_plant.tab <- data.table::rbindlist(
 	lapply(1:3, function(plant) {
-		cohort_long %>%
+		cohort_long_70s %>%
 			filter(PLANT == plant) %>%
 			group_by(cal_obs) %>%
 			get.sim.tab()
 	}))
 
 sim_by_plant.quantiles <- sapply(1:3, function(plant) {
-	quantile(unlist(filter(cohort_long, (suicide == 1 | poison == 1) & PLANT == plant)[, "cal_obs"]), seq(0, 1, 1/15))
+	quantile(unlist(filter(cohort_long_70s, (suicide == 1 | poison == 1) & PLANT == plant)[, "cal_obs"]), seq(0, 1, 1/7))
 })
 sim.center <- apply(sim_by_plant.quantiles, 2, get.center)
 
 sim_by_plant.quantiles[c(1, nrow(sim_by_plant.quantiles)),] <- sapply(
 	1:3, function(plant) {
-		cohort_long <- filter(cohort_long, PLANT == plant)
-		c(min(cohort_long$cal_obs), max(cohort_long$cal_obs))
+		cohort_long_70s <- filter(cohort_long_70s, PLANT == plant)
+		c(min(cohort_long_70s$cal_obs), max(cohort_long_70s$cal_obs))
 	})
 
 sim_by_plant.binned.tab <- data.table::rbindlist(
 	lapply(1:3, function(plant) {
-		cohort_long %>%
+		cohort_long_70s %>%
 			filter(PLANT == plant) %>%
 			group_by(calyear = cut(cal_obs,
 														 breaks = sim_by_plant.quantiles[, plant],
@@ -329,40 +337,45 @@ sim_by_plant.binned.tab <- data.table::rbindlist(
 	}))
 
 
-sim_by_plant.binned.tab$means <- as.vector(apply(sim.center, 2, rep, each = 2))
+sim_by_plant.binned.tab$means <- as.vector(apply(sim.center, 2, rep, each = 3))
 
 closures.tab <- data.frame(
-	Plant = 1:3,
+	Plant = paste("Plant", 1:3),
 	year = c(2012, 2010, 2014)
 )
+
+sim_by_plant.binned.tab <- mutate(sim_by_plant.binned.tab, Plant = factor(Plant, 1:3, paste("Plant", 1:3)))
+sim_by_plant.binned.tab <- filter(sim_by_plant.binned.tab, outcome == "Suicide and fatal overdose")
+sim_by_plant.tab <- mutate(sim_by_plant.tab, Plant = factor(Plant, 1:3, paste("Plant", 1:3)))
+sim_by_plant.tab <- filter(sim_by_plant.tab, outcome == "Suicide and fatal overdose")
 
 ggplot(data.frame()) +
 	geom_point(
 		data = sim_by_plant.binned.tab,
 		aes(x = means,
 				y = rate * 100000,
-				shape = outcome), size = 1.1) +
+				color = Plant), size = 1.1) +
 	geom_smooth(
 		data = sim_by_plant.tab,
 		aes(x = cal_obs,
 				y = rate * 100000,
-				lty = outcome), size = 0.75, se = F,
+				color = Plant), size = 0.75, se = F,
 		method = "loess",
 		span = 0.7) +
 	geom_rug(
-		data = mutate(filter(cohort_long, (poison == 1 | suicide == 1) & PLANT %in% 1:3), Plant = PLANT),
+		data = mutate(filter(cohort_long_70s, (poison == 1 | suicide == 1) & PLANT %in% 1:3), Plant = PLANT),
 		aes(x = yod15)
 	) +
 	geom_vline(data = closures.tab, aes(
 		xintercept = year,
-		color = "Plant closure"
+		color = Plant
 	), size = 0.75, lty = 4) +
-	facet_wrap(. ~ factor(Plant, 1:3, paste("Plant", 1:3)), ncol = 3) +
+	# facet_wrap(. ~ Plant, ncol = 3) +
 	xlab("Calendar Year") +
-	ylab("Suicide and Fatal Overdose Rate\nper 100,000 person-years") +
-	coord_cartesian(
-		xlim = c(1970, 2015),
-		ylim = c(0, 40)) +
+	ylab("Self-injury Mortality Rate\nper 100,000 person-years") +
+	# coord_cartesian(
+	# 	xlim = c(1970, 2015),
+	# 	ylim = c(0, 40)) +
 	theme.tmp + theme(
 		legend.spacing.x = unit(10, "pt"),
 		legend.title = element_blank(),
@@ -376,13 +389,96 @@ ggplot(data.frame()) +
 fig3
 
 tikz(
-	paste0(directory.name, "/Figure 3.tex"),
+	paste0(directory.name, "/Figure 3 (no facet).tex"),
 	standAlone = T,
-	width = 0.8 + 3.2 * 3,
+	width = 0.8 + 3.2 * 1,
 	height = 3.25
 )
 print(fig3)
 dev.off()
+
+# Figure 3b ####
+# Examines unadjusted self-injury mortality rates by race over the period of downsizing
+sim_by_race.tab <- data.table::rbindlist(
+	lapply(0:1, function(race) {
+		cohort_long_70s %>%
+			filter(RACE == race) %>%
+			group_by(cal_obs) %>%
+			get.sim.tab()
+	}))
+
+sim_by_race.quantiles <- sapply(0:1, function(race) {
+	quantile(unlist(filter(cohort_long_70s, (suicide == 1 | poison == 1) & RACE == race)[, "cal_obs"]), seq(0, 1, 1/7))
+})
+
+sim.center <- apply(sim_by_race.quantiles, 2, get.center)
+
+sim_by_race.quantiles[c(1, nrow(sim_by_race.quantiles)),] <- sapply(
+	0:1, function(race) {
+		cohort_long_70s <- filter(cohort_long_70s, RACE == race)
+		c(min(cohort_long_70s$cal_obs), max(cohort_long_70s$cal_obs))
+	})
+
+sim_by_race.binned.tab <- data.table::rbindlist(
+	lapply(0:1, function(race) {
+		cohort_long_70s %>%
+			filter(RACE == race) %>%
+			group_by(calyear = cut(cal_obs,
+														 breaks = sim_by_race.quantiles[, race  + 1],
+														 include.lowest = T)) %>%
+			get.sim.tab()
+	}))
+
+
+sim_by_race.binned.tab %>% mutate(
+	means = 1/2 * (as.numeric(substr(calyear, 7, 10)) + as.numeric(substr(calyear, 2, 5)))
+	) -> sim_by_race.binned.tab
+
+
+ggplot(data.frame()) +
+	geom_point(
+		data = sim_by_race.binned.tab,
+		aes(x = means,
+				y = rate * 100000,
+				shape = outcome
+				), size = 1.1) +
+	geom_smooth(
+		data = sim_by_race.tab,
+		aes(x = cal_obs,
+				y = rate * 100000,
+				lty = outcome), size = 0.75, se = F,
+		method = "loess",
+		span = 0.7) +
+	geom_rug(
+		data = mutate(filter(cohort_long_70s, (poison == 1 | suicide == 1) & RACE %in% 0:1), Race = factor(
+			RACE, 0:1, c("Black", "White"))),
+		aes(x = yod15)) +
+	facet_wrap(. ~ Race, ncol = 3) +
+	xlab("Calendar Year") +
+	ylab("Suicide and Fatal Overdose Rate\nper 100,000 person-years") +
+	coord_cartesian(
+		xlim = c(1970, 2015),
+		ylim = c(0, 40)) +
+	theme.tmp + theme(
+		legend.spacing.x = unit(10, "pt"),
+		legend.title = element_blank(),
+		legend.position = "bottom",
+		legend.box.background = element_blank(),
+		legend.box.margin = margin(0, 10, 0, 0, "pt"),
+		legend.text = element_text(size = 8)) +
+	guides(shape = guide_legend(override.aes = list(size = 1.1))) -> fig3b
+
+
+fig3b
+
+# tikz(
+# 	paste0(directory.name, "/Figure 3b.tex"),
+# 	standAlone = T,
+# 	width = 0.8 + 3.2 * 2,
+# 	height = 3.25
+# )
+# print(fig3b)
+# dev.off()
 
 # Compile using lualatex
 if (!grepl("Darwin", Sys.info()['sysname'], ignore.case = T)) {

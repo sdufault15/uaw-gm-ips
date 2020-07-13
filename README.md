@@ -4,7 +4,12 @@ Repository to hold code for UAW GM IPS manuscript
 
 ## Change log
 
-## July 7, 2020
+### July 13, 2020
+
+- `reports/2020-05-06_tables.Rmd`
+	- Lines 79-86: Exclude those still at work in 1995 for rows "Year of worker exit" and "Age at worker exit" in the tables of population characteristics
+
+### July 7, 2020
 
 - `munge/08_ips-data-70s.R`
 	- Changed name of flag `augmented_ps` to `full_ps`
@@ -21,7 +26,7 @@ Repository to hold code for UAW GM IPS manuscript
 - `reports/ggplot-theme.R`
 	- New file for `ggplot2` theme elements and `tikz` options
 
-## May 21, 2020
+### May 21, 2020
 
 - `munge/02_subsetting-cohort.R`
 	- Line 6: Use mortality follow-up through 2015, not through 2009
@@ -57,7 +62,7 @@ Repository to hold code for UAW GM IPS manuscript
 - `reports/2020-05-19_descriptive-figures.R`
 	- New script, adapted from `2019-07-10_figures.Rnw`, for making Figures 1, 2, and 3
 
-## May 8, 2020
+### May 8, 2020
 
 - `munge/plot_ips.R` renamed to `reports/2020-04-23_ips-curve.R`
 - `munge/08_ips-data-70s.R`

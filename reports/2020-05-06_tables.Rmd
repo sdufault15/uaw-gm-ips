@@ -76,8 +76,14 @@ get.tab1 <- function(
 		'\\textbf{Year of hire}' = floor(YIN16[1]),
 		'\\textbf{Age at hire}' = YIN16[1] - YOB[1],
 		'\\textbf{Year of birth}' = floor(YOB[1]),
-		'\\textbf{Year of worker exit}' = floor(year_left_work[1]),
-		'\\textbf{Age at worker exit}' = year_left_work[1] - YOB[1],
+		'\\textbf{Year of worker exit}' = {
+			if (year_left_work[1] != 1995) {
+				year_left_work[1]
+			} else {NaN}},
+		'\\textbf{Age at worker exit}' = {
+			if (year_left_work[1] != 1995) {
+				year_left_work[1] - YOB[1]
+			} else {NaN}},
 		'\\textbf{Age at death among deceased}' = if (yod15[1] < 2016) {
 			yod15[1] - YOB[1]} else {NaN},
 		'\\textbf{Year of death among deceased}' = if (yod15[1] < 2016) {

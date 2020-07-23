@@ -9,15 +9,8 @@ source(here::here("reports", "ggplot-theme.R"))
 # ggthemr(palette = "fresh",
 #         layout = "clean")
 
-# Pick variable to use for year of employment end
-yout.which <- "year_left_work"
-# yout.which <- "YOUT16"
-
-# Include baseline covariates YIN16, race, and sex?
-full_ps <- T
-
 # Load analytic data based on which variable used as year of employment end
-dta_ips <- box_read(ifelse(yout.which == "YOUT16", 657149129798, 656285655983))
+dta_ips <- box_read(656285655983)
 
 lackingrecords <- dta_ips %>%
 	filter(is.na(A)) %>%
@@ -35,9 +28,7 @@ N <- length(table(dta_ips$STUDYNO))
 y <- dta_ips %>% mutate(SIM = ifelse(suicide == 1 | poison == 1, 1, 0)) %>% select(STUDYNO, SIM) %>% distinct() %>% ungroup() %>% select(SIM) %>% unlist()
 
 # Load IPS results
-ipsi.res <- box_read(
-	ifelse(yout.which == "YOUT16", 657188392651, ifelse(
-		full_ps, 667528945939, 657663070290)))
+ipsi.res <- box_read(667528945939)
 
 # Make plot-ready table
 ips.ggtab <- rbind(
@@ -119,7 +110,7 @@ ips.ggplot <- ggplot(
 	guides(fill = guide_legend(override.aes = list(alpha = 0.5))) +
 	theme_bw() + mytheme +
 	theme(
-		legend.position = c(0.305, 0.938),
+		legend.position = c(0.00125, 0.9375),
 		legend.margin = margin(2.35, 5, 5, 5, "pt"),
 		panel.grid = element_blank(),
 		legend.spacing.y = unit(2.1, "pt"),
@@ -129,8 +120,7 @@ ips.ggplot
 
 # Render plot in TeX
 directory.name <- here::here("graphs")
-file.name <- paste0("Figure 4",
-										ifelse(full_ps, " (full-PS)", ""), ".tex")
+file.name <- paste0("Figure 4.tex")
 tikz(paste0(directory.name, "/", file.name),
 		 standAlone = T, width = 4, height = 3)
 print(ips.ggplot)

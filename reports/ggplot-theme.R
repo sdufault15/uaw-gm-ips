@@ -4,7 +4,7 @@ mytheme <- theme(
 		legend.box.background = element_rect(colour = "black"),
 		legend.title = element_blank(),
 		legend.text = element_text(size = 7),
-		legend.justification = "right",
+		legend.justification = "left",
 		# Legend position is relative to plot window:
 		#   c(0,0) is bottom left, c(1,1) is top right
 		legend.position = c(0.305, 0.935),

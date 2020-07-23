@@ -13,6 +13,39 @@ library(ggfittext)
 
 source(here::here("reports", "ggplot-theme.R"))
 
+# Some helper functions for ggplotting
+get.center <- function(quants) {
+	sapply(2:(length(quants)), function(i) {
+		mean(c(quants[i - 1], quants[i]))
+	})
+}
+
+get.widths <- function(quants) {
+	sapply(2:(length(quants)), function(i) {
+		quants[i] - quants[i - 1] + (i == 2)
+	})
+}
+
+get.sim.tab <- function(tibble) {
+	sim.tab <- dplyr::summarize(
+		tibble,
+		n = length(table(STUDYNO)),
+		n_py = length(STUDYNO),
+		Suicide = sum(suicide)/length(STUDYNO),
+		`Fatal overdose` = sum(poison)/length(STUDYNO),
+		`Suicide and fatal overdose` = sum(poison + suicide)/length(STUDYNO),
+		Plant = PLANT[1],
+		Race = ifelse(RACE[1] == 0, "Black", "White"))
+	
+	sim.pivot <- pivot_longer(
+		sim.tab,
+		c("Suicide", "Fatal overdose", "Suicide and fatal overdose"),
+		names_to = "outcome",
+		values_to = "rate")
+	
+	return(sim.pivot)
+}
+
 # Render plot in TeX
 directory.name <- here::here("graphs")
 
@@ -147,18 +180,6 @@ cal_obs.quantiles <- quantile(unlist(apply(employment_plot.tab, 1, function(x) {
 	as.numeric(rep(x[1], x[2]))
 })), seq(0, 1, 0.05))
 
-get.center <- function(quants) {
-	sapply(2:(length(quants)), function(i) {
-		mean(c(quants[i - 1], quants[i]))
-	})
-}
-
-get.widths <- function(quants) {
-	sapply(2:(length(quants)), function(i) {
-		quants[i] - quants[i - 1] + (i == 2)
-	})
-}
-
 cal_obs.means <- get.center(cal_obs.quantiles)
 cal_obs.years <- get.widths(cal_obs.quantiles)
 
@@ -220,37 +241,17 @@ ggplot(data.frame()) +
 
 fig1
 
-# tikz(
-# 	paste0(directory.name, "/Figure 1.tex"),
-# 	standAlone = T,
-# 	width = 4,
-# 	height = 3
-# )
-# print(fig1)
-# dev.off()
+tikz(
+	paste0(directory.name, "/Figure 1.tex"),
+	standAlone = T,
+	width = 4,
+	height = 3
+)
+print(fig1)
+dev.off()
 
 # Figure 2 ####
 # The estimated incidence rates of overdose and suicide by calendar time in the full UAW-GM cohort.
-get.sim.tab <- function(tibble) {
-	sim.tab <- dplyr::summarize(
-		tibble,
-		n = length(table(STUDYNO)),
-		n_py = length(STUDYNO),
-		Suicide = sum(suicide)/length(STUDYNO),
-		`Fatal overdose` = sum(poison)/length(STUDYNO),
-		`Suicide and fatal overdose` = sum(poison + suicide)/length(STUDYNO),
-		Plant = PLANT[1],
-		Race = ifelse(RACE[1] == 0, "Black", "White"))
-	
-	sim.pivot <- pivot_longer(
-		sim.tab,
-		c("Suicide", "Fatal overdose", "Suicide and fatal overdose"),
-		names_to = "outcome",
-		values_to = "rate")
-	
-	return(sim.pivot)
-}
-
 sim.tab <- cohort_long %>%
 	group_by(cal_obs) %>%
 	get.sim.tab()
@@ -290,8 +291,10 @@ ggplot(data.frame()) +
 	xlab("Calendar Year") +
 	ylab("Suicide and Fatal Overdose Rate\nper 100,000 person-years") +
 	# coord_cartesian(ylim = c(0, 37)) +
-	theme.tmp + theme(legend.title = element_blank(),
-										legend.position = c(0.291, 0.916)) -> fig2
+	theme.tmp + theme(
+		legend.title = element_blank(),
+		legend.justification = "left",
+		legend.position = c(0.00125, 0.916)) -> fig2
 
 fig2
 
@@ -354,50 +357,57 @@ ggplot(data.frame()) +
 		data = sim_by_plant.binned.tab,
 		aes(x = means,
 				y = rate * 100000,
-				color = Plant), size = 1.1) +
-	geom_smooth(
-		data = sim_by_plant.tab,
-		aes(x = cal_obs,
+				shape = Plant), size = 1.1) +
+	geom_line(
+		data = sim_by_plant.binned.tab,
+		aes(x = means,
 				y = rate * 100000,
-				color = Plant), size = 0.75, se = F,
-		method = "loess",
-		span = 0.7) +
+				lty = Plant)) +
+	# geom_smooth(
+	# 	data = sim_by_plant.tab,
+	# 	aes(x = cal_obs,
+	# 			y = rate * 100000,
+	# 			color = Plant), size = 0.75, se = F,
+	# 	method = "loess",
+	# 	span = 0.7) +
 	geom_rug(
 		data = mutate(filter(cohort_long_70s, (poison == 1 | suicide == 1) & PLANT %in% 1:3), Plant = PLANT),
 		aes(x = yod15)
 	) +
-	geom_vline(data = closures.tab, aes(
-		xintercept = year,
-		color = Plant
-	), size = 0.75, lty = 4) +
+	geom_vline(data = closures.tab[1,], aes(
+		xintercept = year
+	), size = 0.5, lty = "solid") +
+	geom_vline(data = closures.tab[2,], aes(
+		xintercept = year
+	), size = 0.5, lty = "dashed") +
+	geom_vline(data = closures.tab[3,], aes(
+		xintercept = year
+	), size = 0.5, lty = "dotted") +
 	# facet_wrap(. ~ Plant, ncol = 3) +
 	xlab("Calendar Year") +
 	ylab("Self-injury Mortality Rate\nper 100,000 person-years") +
 	# coord_cartesian(
 	# 	xlim = c(1970, 2015),
 	# 	ylim = c(0, 40)) +
+	scale_linetype_manual(values = c("solid", "dashed", "dotted")) +
 	theme.tmp + theme(
-		legend.spacing.x = unit(10, "pt"),
 		legend.title = element_blank(),
-		legend.position = "bottom",
-		legend.box.background = element_blank(),
-		legend.box.margin = margin(0, 10, 0, 0, "pt"),
-		legend.text = element_text(size = 8)) +
-	guides(shape = guide_legend(override.aes = list(size = 1.1))) -> fig3
-
+		legend.justification = "left",
+		legend.position = c(0.00125, 0.88895)) -> fig3
+	# guides(lty = guide_legend(override.aes = list(size = 0.5)))
 
 fig3
 
 tikz(
-	paste0(directory.name, "/Figure 3 (no facet).tex"),
+	paste0(directory.name, "/Figure 3.tex"),
 	standAlone = T,
 	width = 0.8 + 3.2 * 1,
-	height = 3.25
+	height = 3
 )
 print(fig3)
 dev.off()
 
-# Figure 3b ####
+# figure 3b ####
 # Examines unadjusted self-injury mortality rates by race over the period of downsizing
 sim_by_race.tab <- data.table::rbindlist(
 	lapply(0:1, function(race) {
@@ -472,7 +482,7 @@ ggplot(data.frame()) +
 fig3b
 
 # tikz(
-# 	paste0(directory.name, "/Figure 3b.tex"),
+# 	paste0(directory.name, "/figure 3b.tex"),
 # 	standAlone = T,
 # 	width = 0.8 + 3.2 * 2,
 # 	height = 3.25

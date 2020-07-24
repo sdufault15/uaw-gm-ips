@@ -48,75 +48,82 @@ ips.ggplot <- ggplot(
 	# Draw dotted line at OR shift = 1.0
 	geom_vline(aes(
 		xintercept = 1
-	), linetype = 2, color = 'salmon') +
+	), linetype = "dashed", alpha = 0.25) +
 	# Draw dotted line at observed cumulative incidence
 	geom_hline(aes(
 		yintercept = ipsi.res$res.ptwise[
 			ipsi.res$res.ptwise$increment == 1, 2] * length(
 				table(dta_ips$STUDYNO))),
-		linetype = 2,
-		color = 'salmon') +
-	geom_ribbon(aes(
-		ymin = ci.ll * N,
-		ymax = ci.ul * N,
-		fill = `Inference:`
-	),
-	# fill = 'grey',
-	alpha = 0.15) +
+		linetype = "dashed", alpha = 0.25) +
+	# Uniform CI: Lower bound
+	geom_ribbon(data = {
+		ips.ggtab %>% filter(`Inference:` == unique(`Inference:`)[1])},
+		aes(ymin = ci.ll * N,
+				ymax = ci.ul * N,
+				fill = unique(`Inference:`)[1]), alpha = 0.35) +
+	scale_fill_manual(values = "grey") +
+	# Uniform CI: Lower bound
+	geom_line(data = {
+		ips.ggtab %>% filter(`Inference:` == unique(`Inference:`)[2])},
+		aes(y = ci.ll * N,
+				linetype = `Inference:`)) +
+	# Uniform CI: Upper bound
+	geom_line(data = {
+		ips.ggtab %>% filter(`Inference:` == unique(`Inference:`)[2])},
+		aes(y = ci.ul * N,
+				linetype = `Inference:`)) +
+	scale_linetype_manual(values = c("dotted")) +
 	# Arrows point from annotation to curve
-	geom_segment(data = filter(ips.ggtab[
-		# Present every other estimate and exclude the first
-		seq(1, 21, 2)[-1],], `Inference:` == "Pointwise 95\\% CI", increment != 0),
+	geom_segment(data = {
+		ips.ggtab %>% filter(`Inference:` == "Pointwise 95\\% CI") %>%
+			slice(seq(1, nrow(.), 2)) %>% filter(increment != 1)},
 		aes(x = increment - 0.025,
 				xend = increment,
 				y = est * N + 40,
-				yend = est * N
-		),
-		size = 0.5,
-		arrow = arrow(length = unit(0.01, 'npc'), type = 'closed')
-	) +
-	geom_segment(
-		# Present the observed count
-		aes(x = 1 - 0.025,
-				xend = 1,
-				y = sum(y) + 40,
-				yend = sum(y)
-		),
-		size = 0.5,
-		arrow = arrow(length = unit(0.01, 'npc'), type = 'closed'),
-		color = "salmon") +
+				yend = est * N),
+		size = 0.5, arrow = arrow(length = unit(0.01, 'npc'), type = 'closed')) +
 	# Annotation with counts (want this to cover arrows)
-	geom_label(data = filter(ips.ggtab[
-		# Present every other estimate and exclude first and last
-		seq(1, 21, 2)[-1],], `Inference:` == "Pointwise 95\\% CI", increment != 0),
-		aes(
-			y = est * N + 40,
-			x = increment - 0.025,
-			label = round(est * N)
+	geom_label(data = {
+		ips.ggtab %>% filter(`Inference:` == "Pointwise 95\\% CI") %>%
+			slice(seq(1, nrow(.), 2)) %>% filter(increment != 1)},
+		aes(y = est * N + 40,
+				x = increment - 0.025,
+				label = round(est * N)
 		), size = 2) +
-	geom_label(
-		# Arrow for observed count
-		aes(
-			y = sum(y) + 40,
-			x = 1 - 0.025,
-			label = sum(y)
-		), size = 2, color = "salmon") +
+	# Arrows point from annotation to curve: Observed
+	geom_segment(data = {
+		ips.ggtab %>% filter(increment == 1)},
+		aes(x = increment - 0.025 * 1.4,
+				xend = increment,
+				y = est * N + 40 * 1.85,
+				yend = est * N),
+		size = 0.5, arrow = arrow(length = unit(0.01, 'npc'), type = 'closed')) +
+	# Annotation with counts (want this to cover arrows): observed
+	geom_label(data = {
+		ips.ggtab %>% filter(increment == 1)},
+		aes(x = increment - 0.025 * 1.4,
+				y = est * N + 40 * 1.85,
+				label = round(est * N)
+		), size = 2) +
+	# Window
 	coord_cartesian(xlim = c(0.775, 1.225),
 									ylim = c(150, 550)) +
 	labs(
 		x = "Leaving work odds ratio, $\\delta$",
 		y = "Suicide and overdose mortality, $\\Psi(\\delta)$"
 	) +
-	guides(fill = guide_legend(override.aes = list(alpha = 0.5))) +
+	guides(fill = guide_legend(override.aes = list(alpha = 0.6))) +
 	theme_bw() + mytheme +
 	theme(
-		legend.position = c(0.00125, 0.9375),
+		legend.position = c(0.0005, 0.9015),
 		legend.margin = margin(2.35, 5, 5, 5, "pt"),
 		panel.grid = element_blank(),
 		legend.spacing.y = unit(2.1, "pt"),
 		legend.key = element_rect(size = 20))
 
+# quartz(width = 4, height = 3)
 ips.ggplot
+# dev.off()
 
 # Render plot in TeX
 directory.name <- here::here("graphs")

@@ -52,7 +52,6 @@ directory.name <- here::here("graphs")
 theme.tmp <- theme_bw() + mytheme + theme(
 	panel.grid = element_blank(),
 	legend.key.size = unit(10, "pt"),
-	legend.title = element_text(size = 8),
 	plot.margin = margin(5, 5, 5, 5)
 )
 
@@ -161,10 +160,7 @@ employment <- cohort_long %>%
 	filter(floor(cal_obs) <= year_left_work) %>%
 	mutate(leaving_work = ifelse(
 		floor(cal_obs) == floor(year_left_work) &
-			year_left_work != 1995,
-		1,
-		0
-	))
+			year_left_work != 1995, 1, 0))
 
 employment_plot.tab <- employment %>%
 	ungroup() %>%
@@ -183,18 +179,19 @@ cal_obs.quantiles <- quantile(unlist(apply(employment_plot.tab, 1, function(x) {
 cal_obs.means <- get.center(cal_obs.quantiles)
 cal_obs.years <- get.widths(cal_obs.quantiles)
 
-employmenet_plot_binned.tab <- dplyr::summarize(group_by(mutate(
-	employment_plot.tab,
-	cal_obs = cut(cal_obs, cal_obs.quantiles, include.lowest = T)
-), cal_obs),
-n = sum(n),
-n_leave = sum(n_leave))
+employmenet_plot_binned.tab <- dplyr::summarize(
+	group_by(mutate(
+		employment_plot.tab,
+		cal_obs = cut(cal_obs, cal_obs.quantiles, include.lowest = T)
+	), cal_obs),
+	n = sum(n),
+	n_leave = sum(n_leave))
 
 employmenet_plot_binned.tab$means <- cal_obs.means
 employmenet_plot_binned.tab$years <- cal_obs.years
 
-employmenet_plot_binned.tab <- mutate(employmenet_plot_binned.tab,
-																			rate = n_leave / n)
+employmenet_plot_binned.tab <- mutate(
+	employmenet_plot_binned.tab, rate = n_leave / n)
 
 ggplot(data.frame()) +
 	xlab("Calendar Year") +
@@ -204,8 +201,10 @@ ggplot(data.frame()) +
 		data = employment_plot.tab,
 		aes(x = cal_obs,
 				y = rate * 100),
-		alpha = 0.2,
-		size = 0.5
+		fill = "grey",
+		alpha = 0.3,
+		size = 0.5,
+		color = "black",
 	) +
 	geom_point(data = employmenet_plot_binned.tab,
 						 aes(x = means,
@@ -213,33 +212,25 @@ ggplot(data.frame()) +
 						 size = 1) +
 	geom_rug(
 		data = dplyr::summarize(group_by(
-			filter(employment, year_left_work != 1995), STUDYNO
-		),
-		year_left_work.gm = year_left_work.gm[1])[sample(1:27599, 1000), ],
-		aes(x = year_left_work.gm)
-	) +
-	scale_x_continuous(breaks = seq(1940, 1995, by = 5),
-										 labels = as.vector(
-										 	sapply(seq(1940, 1990, by = 10), function(x) {
-										 		return(c(x, ""))}))
-	) +
-	geom_vline(xintercept = 1981,
-						 lty = 3,
-						 col = 'darkgray') +
-	coord_cartesian(xlim = c(1942, 1993)) +
+			filter(employment, year_left_work != 1995), STUDYNO),
+			year_left_work.gm = year_left_work.gm[1])[sample(1:27599, 1000), ],
+		aes(x = year_left_work.gm)) +
+	scale_x_continuous(
+		breaks = seq(1940, 1995, by = 5),
+		labels = as.vector(sapply(seq(1940, 1990, by = 10), function(x) {return(c(x, ""))}))) +
+	geom_vline(
+		xintercept = 1981, lty = 3, alpha = 0.5) +
+	coord_cartesian(
+		xlim = c(1942, 1993)) +
 	annotate(
 		geom = "text",
-		# family = "serif",
-		x = 1980,
-		y = 13,
-		label = "End of Enrollment",
-		size = 2.5,
-		col = "darkgray",
-		hjust = "right"
-	) +
+		x = 1980, y = 13, label = "End of Enrollment",
+		size = 2.5, col = "black", hjust = "right", alpha = 0.5) +
 	theme.tmp -> fig1
 
-fig1
+# quartz(width = 4, height = 3)
+# fig1
+# dev.off()
 
 tikz(
 	paste0(directory.name, "/Figure 1.tex"),
@@ -261,9 +252,10 @@ sim.center <- get.center(sim.quantiles)
 sim.quantiles[c(1, length(sim.quantiles))] <- c(min(cohort_long$cal_obs), max(cohort_long$cal_obs))
 
 sim.binned.tab <- cohort_long %>%
-	group_by(calyear = cut(cal_obs,
-												 breaks = sim.quantiles,
-												 include.lowest = T)) %>%
+	group_by(calyear = cut(
+		cal_obs,
+		breaks = sim.quantiles,
+		include.lowest = T)) %>%
 	get.sim.tab()
 
 sim.binned.tab$means <- rep(sim.center, each = 3)
@@ -282,8 +274,7 @@ ggplot(data.frame()) +
 		aes(x = cal_obs,
 				y = rate * 100000,
 				lty = outcome), size = 0.5, se = F,
-		method = "loess",
-		span = 0.7) +
+		method = "loess", span = 0.7, col = "black") +
 	geom_rug(
 		data = filter(cohort_long, poison == 1 | suicide == 1),
 		aes(x = yod15)
@@ -292,11 +283,12 @@ ggplot(data.frame()) +
 	ylab("Suicide and Fatal Overdose Rate\nper 100,000 person-years") +
 	# coord_cartesian(ylim = c(0, 37)) +
 	theme.tmp + theme(
-		legend.title = element_blank(),
 		legend.justification = "left",
-		legend.position = c(0.00125, 0.916)) -> fig2
+		legend.position = c(0.0005, 0.911)) -> fig2
 
-fig2
+# quartz(width = 4, height = 3)
+# fig2
+# dev.off()
 
 tikz(
 	paste0(directory.name, "/Figure 2.tex"),
@@ -333,12 +325,12 @@ sim_by_plant.binned.tab <- data.table::rbindlist(
 	lapply(1:3, function(plant) {
 		cohort_long_70s %>%
 			filter(PLANT == plant) %>%
-			group_by(calyear = cut(cal_obs,
-														 breaks = sim_by_plant.quantiles[, plant],
-														 include.lowest = T)) %>%
+			group_by(calyear = cut(
+				cal_obs,
+				breaks = sim_by_plant.quantiles[, plant],
+				include.lowest = T)) %>%
 			get.sim.tab()
 	}))
-
 
 sim_by_plant.binned.tab$means <- as.vector(apply(sim.center, 2, rep, each = 3))
 
@@ -374,29 +366,37 @@ ggplot(data.frame()) +
 		data = mutate(filter(cohort_long_70s, (poison == 1 | suicide == 1) & PLANT %in% 1:3), Plant = PLANT),
 		aes(x = yod15)
 	) +
-	geom_vline(data = closures.tab[1,], aes(
-		xintercept = year
-	), size = 0.5, lty = "solid") +
-	geom_vline(data = closures.tab[2,], aes(
-		xintercept = year
-	), size = 0.5, lty = "dashed") +
-	geom_vline(data = closures.tab[3,], aes(
-		xintercept = year
-	), size = 0.5, lty = "dotted") +
+	geom_vline(
+		data = closures.tab[1,],
+		aes(xintercept = year),
+		size = 0.5, lty = "dashed", alpha = 0.5) +
+	geom_vline(
+		data = closures.tab[2,],
+		aes(xintercept = year),
+		size = 0.5, lty = "solid", alpha = 0.5) +
+	geom_vline(
+		data = closures.tab[3,],
+		aes(xintercept = year),
+		size = 0.5, lty = "dotted", alpha = 0.5) +
 	# facet_wrap(. ~ Plant, ncol = 3) +
 	xlab("Calendar Year") +
 	ylab("Self-injury Mortality Rate\nper 100,000 person-years") +
-	# coord_cartesian(
-	# 	xlim = c(1970, 2015),
-	# 	ylim = c(0, 40)) +
-	scale_linetype_manual(values = c("solid", "dashed", "dotted")) +
+	coord_cartesian(
+		ylim = c(0, 54)) +
+	scale_linetype_manual(values = c("dashed", "solid", "dotted")) +
+	annotate(
+		geom = "text",
+		x = 2009, y = 54, label = "Plant Closure",
+		size = 2.5, col = "black", hjust = "right", alpha = 0.5) +
 	theme.tmp + theme(
-		legend.title = element_blank(),
+		legend.margin = margin(0, 7, 5, 5, "pt"),
 		legend.justification = "left",
-		legend.position = c(0.00125, 0.88895)) -> fig3
-	# guides(lty = guide_legend(override.aes = list(size = 0.5)))
+		legend.position = c(c(0.0005, 0.884))) -> fig3
+# guides(lty = guide_legend(override.aes = list(size = 0.5)))
 
-fig3
+# quartz(width = 4, height = 3)
+# fig3
+# dev.off()
 
 tikz(
 	paste0(directory.name, "/Figure 3.tex"),
@@ -439,11 +439,9 @@ sim_by_race.binned.tab <- data.table::rbindlist(
 			get.sim.tab()
 	}))
 
-
 sim_by_race.binned.tab %>% mutate(
 	means = 1/2 * (as.numeric(substr(calyear, 7, 10)) + as.numeric(substr(calyear, 2, 5)))
-	) -> sim_by_race.binned.tab
-
+) -> sim_by_race.binned.tab
 
 ggplot(data.frame()) +
 	geom_point(
@@ -451,17 +449,17 @@ ggplot(data.frame()) +
 		aes(x = means,
 				y = rate * 100000,
 				shape = outcome
-				), size = 1.1) +
+		), size = 1.1) +
 	geom_smooth(
 		data = sim_by_race.tab,
 		aes(x = cal_obs,
 				y = rate * 100000,
 				lty = outcome), size = 0.75, se = F,
 		method = "loess",
-		span = 0.7) +
+		span = 0.7, color = "black") +
 	geom_rug(
-		data = mutate(filter(cohort_long_70s, (poison == 1 | suicide == 1) & RACE %in% 0:1), Race = factor(
-			RACE, 0:1, c("Black", "White"))),
+		data = mutate(filter(cohort_long_70s, (poison == 1 | suicide == 1) & RACE %in% 0:1),
+									Race = factor(RACE, 0:1, c("Black", "White"))),
 		aes(x = yod15)) +
 	facet_wrap(. ~ Race, ncol = 3) +
 	xlab("Calendar Year") +
@@ -469,17 +467,17 @@ ggplot(data.frame()) +
 	coord_cartesian(
 		xlim = c(1970, 2015),
 		ylim = c(0, 40)) +
+	scale_linetype_manual(values = c("dashed", "solid", "dotted")) +
 	theme.tmp + theme(
 		legend.spacing.x = unit(10, "pt"),
-		legend.title = element_blank(),
 		legend.position = "bottom",
 		legend.box.background = element_blank(),
 		legend.box.margin = margin(0, 10, 0, 0, "pt"),
-		legend.text = element_text(size = 8)) +
-	guides(shape = guide_legend(override.aes = list(size = 1.1))) -> fig3b
+		legend.text = element_text(size = 8)) -> fig3b
 
-
-fig3b
+# quartz(height = 4, width = 0.8 + 3.2 * 2)
+# fig3b
+# dev.off()
 
 # tikz(
 # 	paste0(directory.name, "/figure 3b.tex"),

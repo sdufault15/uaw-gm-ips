@@ -4,6 +4,14 @@ Repository to hold code for UAW GM IPS manuscript
 
 ## Change log
 
+### November 23, 2020
+
+- `munge/08_ips-data-70s.R`
+ 	- Lines 1-2: Script for installing the `npcausal` package
+	- Lines 300-336: Loop IPS analysis over different ends of follow-up
+		- Ending FU in 2010, 2010, 2005, 2000, or 1995
+	- Lines 338-367: Verify case counts
+
 ### July 13, 2020
 
 - `reports/2020-05-06_tables.Rmd`

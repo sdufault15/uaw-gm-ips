@@ -1,3 +1,5 @@
+# devtools::install_github("ehkennedy/npcausal")
+
 library(tidyverse)
 library(boxr)
 library(date)
@@ -54,17 +56,17 @@ if (yout.which == "year_left_work") {
           time_length(difftime(as.Date(paste0(year(x), "-12-31")),
                                as.Date(paste0(year(x), "-01-01"))), "year"))
     )}
-  
+
   cohort$year_left_work.gm <- 1995
   cohort[cohort$month_left_work != 1995, "year_left_work.gm"] <- mutate(cohort[cohort$month_left_work != 1995,],
                                                                         year_left_work.gm = paste(year_left_work, month_left_work, day_left_work, sep = "/")
   ) %>% mutate(year_left_work.gm = date.to.gm(as.Date(year_left_work.gm))) %>%
     select(year_left_work.gm) %>% unlist
-  
+
   cohort_long <- full_join(cohort_long,
                            cohort[,c("STUDYNO", "year_left_work.gm")],
                            by = "STUDYNO")
-  
+
   # Filter
   cohort %>% filter(round(year_left_work.gm - YIN16, 1) >= 3) -> cohort
   cohort_long %>% filter(round(year_left_work.gm - YIN16, 1) >= 3) -> cohort_long
@@ -267,11 +269,11 @@ box_save(dta_ips,
 
 lackingrecords <- dta_ips %>%
   filter(is.na(A)) %>%
-  select(STUDYNO) %>% 
+  select(STUDYNO) %>%
   distinct() %>%
   unlist()
 
-dta_ips <- dta_ips %>% 
+dta_ips <- dta_ips %>%
   filter(!STUDYNO %in% lackingrecords)
 
 # Verify order
@@ -292,30 +294,73 @@ x.out <- dta_ips %>% select(
 ) %>% data.matrix()
 time <- dta_ips %>% ungroup() %>% select(cal_obs) %>% unlist()
 a <- dta_ips %>% ungroup() %>% select(A) %>%  unlist()
-#y <- dta.ips %>% select(STUDYNO, suicide) %>% distinct() %>% select(suicide) %>% unlist() # just suicides
-y <- dta_ips %>% mutate(SIM = ifelse(suicide == 1 | poison == 1, 1, 0)) %>% select(STUDYNO, SIM) %>% distinct() %>% ungroup() %>% select(SIM) %>% unlist()
+# y <- dta.ips %>% select(STUDYNO, suicide) %>% distinct() %>% select(suicide) %>% unlist() # just suicides
 id <- dta_ips$STUDYNO
 
-dim(x.trt); dim(x.out)
-length(y); length(table(id))
-table(c(length(time), length(a), length(y) * length(table(time)) , length(id)))
+# Outcome vector for different end of FU cutoffs ####
+FU_cutoffs <- c(2015, 2010, 2005, 2000, 1995)
+y <- lapply(FU_cutoffs, function(x) {
+           dta_ips %>% mutate(SIM = ifelse((suicide == 1 | poison == 1) & yod15 < x + 1, 1, 0)) %>%
+             select(STUDYNO, SIM) %>% distinct() %>% ungroup() %>% select(SIM) %>% unlist()
+         })
+names(y) <- FU_cutoffs
 
-# delta.seq <- unique(c(seq(0.1,1.5, by = 0.025), seq(1.5, 5, by = 0.5)))
-delta.seq <- unique(c(seq(0.75,1.25, by = 0.025)))
+for (k in FU_cutoffs) {
+  y_k <- unlist(y[names(y) == k])
+  dim(x.trt); dim(x.out)
+  length(y_k); length(table(id))
+  table(c(length(time), length(a), length(y_k) * length(table(time)) , length(id)))
 
-# File name indicating delta range
-file.name <- paste0(
-  "ipsi_", round(delta.seq[1], digits = 2), "-",
-  round(delta.seq[length(delta.seq)], digits = 2),
-  ifelse(full_ps, "_full-PS", ""),
-  ".RData")
+  # delta.seq <- unique(c(seq(0.1,1.5, by = 0.025), seq(1.5, 5, by = 0.5)))
+  delta.seq <- unique(c(seq(0.75,1.25, by = 0.025)))
 
-ipsi.res <- npcausal::ipsi(y, a, x.trt, x.out, time, id, delta.seq, nsplits = 3)
-box_save(ipsi.res,
-         dir_id = box.dir,
-         file_name = file.name,
-         description = paste0(
-           "IPS results for delta spanning ",
-           delta.seq[1], " to ", delta.seq[length(delta.seq)],
-           ", using `", yout.which, "` for year of leaving work.",
-           ifelse(full_ps, " PS model includes year of hire, race, and sex.", "")))
+  # File name indicating delta range
+  file.name <- paste0(
+    "ipsi_", round(delta.seq[1], digits = 2), "-",
+    round(delta.seq[length(delta.seq)], digits = 2),
+    ifelse(full_ps, "_full-PS", ""),
+    "_FU-through-", k,
+    ".RData")
+
+  ipsi.res <- npcausal::ipsi(y_k, a, x.trt, x.out, time, id, delta.seq, nsplits = 3)
+  box_save(ipsi.res,
+           dir_id = box.dir,
+           file_name = file.name,
+           description = paste0(
+             "IPS results for delta spanning ",
+             delta.seq[1], " to ", delta.seq[length(delta.seq)],
+             ", using `", yout.which, "` for year of leaving work.",
+             ifelse(full_ps, " PS model includes year of hire, race, and sex.", ""),
+             " FU through ", k, "."))
+}
+
+####################################
+# Calendar year and outcome status #
+####################################
+# library(data.table); library(pander)
+# dta_ips_long.dt <- as.data.table(dta_ips_long)
+# dta_ips_long.dt[,`:=`(
+#     suicide = {if (suicide[1] == 1) {
+#         suicide <- rep(0, .N)
+#         suicide[cal_obs == floor(yod15)] <- 1
+#         suicide
+#     } else {rep(0, .N)}},
+#     poisoning = {if (poison[1] == 1) {
+#         poison <- rep(0, .N)
+#         poison[.N] <- 1
+#         poison
+#     } else {rep(0, .N)}}
+# ), by = .(STUDYNO)]
+# box_write(dta_ips_long.dt,
+#          "dta_ips_long.dt.rds",
+#          box.dir)
+# dta_ips_long.dt <- box_read(741123550410)
+#
+# rbindlist(lapply(c(2015, 2010, 2005, 2000, 1995), function(x) {
+#   dta_ips_long.dt[
+#     get(yout.which) >= 1970 & cal_obs >= 1970 & cal_obs <= x, .(
+#     `Follow-up` = x,
+#     Suicide = sum(suicide),
+#     Poisoning = sum(poisoning),
+#     SIM = sum(suicide ==1 | poisoning == 1)
+# )]})) %>% pander

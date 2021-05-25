@@ -304,6 +304,7 @@ y <- lapply(FU_cutoffs, function(x) {
              select(STUDYNO, SIM) %>% distinct() %>% ungroup() %>% select(SIM) %>% unlist()
          })
 names(y) <- FU_cutoffs
+sapply(y, sum)
 
 for (k in FU_cutoffs) {
   y_k <- unlist(y[names(y) == k])

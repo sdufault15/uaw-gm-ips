@@ -26,9 +26,9 @@ get.widths <- function(quants) {
 	})
 }
 
-get.sim.tab <- function(tibble) {
+get.sim.tab <- function(tib) {
 	sim.tab <- dplyr::summarize(
-		tibble,
+		tib,
 		n = length(table(STUDYNO)),
 		n_py = length(STUDYNO),
 		Suicide = sum(suicide)/length(STUDYNO),
@@ -36,13 +36,13 @@ get.sim.tab <- function(tibble) {
 		`Suicide and fatal overdose` = sum(poison + suicide)/length(STUDYNO),
 		Plant = PLANT[1],
 		Race = ifelse(RACE[1] == 0, "Black", "White"))
-	
+
 	sim.pivot <- pivot_longer(
 		sim.tab,
 		c("Suicide", "Fatal overdose", "Suicide and fatal overdose"),
 		names_to = "outcome",
 		values_to = "rate")
-	
+
 	return(sim.pivot)
 }
 
@@ -50,7 +50,6 @@ get.sim.tab <- function(tibble) {
 directory.name <- here::here("graphs")
 
 theme.tmp <- theme_bw() + mytheme + theme(
-	panel.grid = element_blank(),
 	legend.key.size = unit(10, "pt"),
 	plot.margin = margin(5, 5, 5, 5)
 )
@@ -66,20 +65,20 @@ pretty.cut <- function(x = c("(35, 45]",
 		upper.delim <- "\\["
 		lower.delim <- "\\)"
 	}
-	
+
 	lower <-
 		gsub(" ", "", substr(x, unlist(gregexpr(upper.delim, x)) + 1,
 												 unlist(gregexpr(",", x)) - 1))
 	upper <- gsub(" ", "", substr(x, unlist(gregexpr(",", x)) + 1,
 																unlist(gregexpr(lower.delim, x)) - 1))
-	
+
 	lower <- as.numeric(lower)
 	upper <- as.numeric(upper)
-	
+
 	if (right) {
 		lower <- lower + 1
 	}
-	
+
 	return(paste0(lower, " to ", upper))
 }
 
@@ -152,7 +151,7 @@ cohort_long %>% filter(poison == 1) %>% select(STUDYNO) %>% n_distinct()
 cohort_long %>% mutate(suicide = ifelse(cal_obs == floor(yod15) & suicide == 1, 1, 0)) -> cohort_long
 cohort_long %>% mutate(poison = ifelse(cal_obs == floor(yod15) & poison == 1, 1, 0)) -> cohort_long
 
-# Figure 1 ####
+# Figure 0 ####
 # Trends in worker exit for the UAW-GM cohort. The observed annual rates of leaving work among actively employed workers are denoted by the solid blue line. A smooth loess line fit to the observed annual rates is plotted in gold with an error bar to denote 95% confidence intervals. The rate of leaving work hovered around 4% from the 1960s until the early 1980s. The sharp upward trend of worker exit after 1980 is the result of forced separation from mass layoffs as well as an aging cohort that is not replenishing after 1981.
 employment <- cohort_long %>%
 	ungroup() %>%
@@ -226,28 +225,28 @@ ggplot(data.frame()) +
 		geom = "text",
 		x = 1980, y = 13, label = "End of Enrollment",
 		size = 2.5, col = "black", hjust = "right", alpha = 0.5) +
-	theme.tmp -> fig1
+	theme.tmp -> fig0
 
 # quartz(width = 4, height = 3)
-# fig1
+# fig0
 # dev.off()
 
-tikz(
-	paste0(directory.name, "/Figure 1.tex"),
-	standAlone = T,
-	width = 4,
-	height = 3
-)
-print(fig1)
-dev.off()
+# tikz(
+# 	paste0(directory.name, "/Figure 0.tex"),
+# 	standAlone = T,
+# 	width = 4,
+# 	height = 3
+# )
+# print(fig0)
+# dev.off()
 
-# Figure 2 ####
-# The estimated incidence rates of overdose and suicide by calendar time in the full UAW-GM cohort.
+# Figure 1 ####
+# SIM over time
 sim.tab <- cohort_long %>%
 	group_by(cal_obs) %>%
 	get.sim.tab()
 
-sim.quantiles <- quantile(unlist(filter(cohort_long, suicide == 1 | poison == 1)[, "cal_obs"]), seq(0, 1, 1/15))
+sim.quantiles <- quantile(unlist(filter(cohort_long, suicide == 1 | poison == 1)[, "cal_obs"]), seq(0, 1, 0.05))
 sim.center <- get.center(sim.quantiles)
 sim.quantiles[c(1, length(sim.quantiles))] <- c(min(cohort_long$cal_obs), max(cohort_long$cal_obs))
 
@@ -260,265 +259,121 @@ sim.binned.tab <- cohort_long %>%
 
 sim.binned.tab$means <- rep(sim.center, each = 3)
 
-sim.binned.tab <- filter(sim.binned.tab, outcome != "Suicide and fatal overdose")
-sim.tab <- filter(sim.tab, outcome != "Suicide and fatal overdose")
-
 ggplot(data.frame()) +
-	geom_point(
-		data = sim.binned.tab,
-		aes(x = means,
-				y = rate * 100000,
-				shape = outcome), size = 1) +
-	geom_smooth(
-		data = sim.tab,
-		aes(x = cal_obs,
-				y = rate * 100000,
-				lty = outcome), size = 0.5, se = F,
-		method = "loess", span = 0.7, col = "black") +
-	geom_rug(
-		data = filter(cohort_long, poison == 1 | suicide == 1),
-		aes(x = yod15)
-	) +
 	xlab("Calendar Year") +
-	ylab("Suicide and Fatal Overdose Rate\nper 100,000 person-years") +
-	# coord_cartesian(ylim = c(0, 37)) +
-	theme.tmp + theme(
-		legend.justification = "left",
-		legend.position = c(0.0005, 0.911)) -> fig2
+	ylab("Suicide and Fatal Overdose Count") +
+	#facet_wrap(~PLANT, ncol = 1) +
+	geom_line(
+		data = employment_plot.tab ,
+		aes(x = cal_obs,
+				y = n / 6e2,
+				linetype = "Employees at work"),
+	) +
+	geom_bar(data = mutate(filter(sim.tab, outcome == "Suicide and fatal overdose"),
+												 # levels(calyear) <= 9),
+												 n = rate * n_py) %>% filter(n > 0) %>%
+					 	group_by(cal_obs) %>%
+					 	# group_by(means) %>%
+					 	summarize(n = 1:n),
+					 aes(
+					 	# x = means,
+					 	x = cal_obs,
+					 	# y = rate * n_py,
+					 	fill = "Suicide and Fatal Overdose"
+					 )) +
+	scale_fill_manual(values = "grey") +
+	# geom_rug(
+	# 	data = dplyr::summarize(group_by(
+	# 		filter(employment, year_left_work != 1995), STUDYNO),
+	# 		year_left_work.gm = year_left_work.gm[1])[sample(1:27599, 1000), ],
+	# 	aes(x = year_left_work.gm)) +
+	scale_y_continuous(
+		sec.axis = sec_axis( ~ . * 6e2, name = "Employees At Work")) +
+	scale_x_continuous(
+		breaks = seq(1940, 2015, by = 5),
+		labels = as.vector(sapply(seq(1940, 2010, by = 10), function(x) {return(c(x, ""))}))) +
+	geom_text(aes(
+		x = 1995,
+		y = filter(employment_plot.tab, cal_obs == max(cal_obs))$n / 6e2
+		),
+		label = "1995 - End of\nemployment records",
+		size = 2,
+		hjust = 0) +
+	coord_cartesian(
+		xlim = c(1937, 2017),
+		ylim = c(0, 46)) +
+	theme.tmp  +
+	theme(legend.position = c(0.001, 0.92),
+				legend.margin = margin(-10, 5, 0, 5, "pt"),
+				legend.box.margin = margin(10, 1, 5, 1, "pt"),
+				axis.title.y = element_text(margin = margin(t = 0, r = 5, b = 0, l = 5)),
+				axis.title.y.right = element_text(margin = margin(t = 0, r = 2, b = 0, l = 8)),
+				legend.key.size = unit(6, "pt")
+	) -> fig1
 
 # quartz(width = 4, height = 3)
-# fig2
+fig1
 # dev.off()
 
 tikz(
-	paste0(directory.name, "/Figure 2.tex"),
+	paste0(directory.name, "/Figure 1.tex"),
 	standAlone = T,
 	width = 4,
 	height = 3
 )
-print(fig2)
+print(fig1)
 dev.off()
-
-# Figure 3 ####
-# Examines unadjusted self-injury mortality rates by plant over the period of downsizing
-cohort_long_70s <- filter(cohort_long, cal_obs >= 1970)
-sim_by_plant.tab <- data.table::rbindlist(
-	lapply(1:3, function(plant) {
-		cohort_long_70s %>%
-			filter(PLANT == plant) %>%
-			group_by(cal_obs) %>%
-			get.sim.tab()
-	}))
-
-sim_by_plant.quantiles <- sapply(1:3, function(plant) {
-	quantile(unlist(filter(cohort_long_70s, (suicide == 1 | poison == 1) & PLANT == plant)[, "cal_obs"]), seq(0, 1, 1/7))
-})
-sim.center <- apply(sim_by_plant.quantiles, 2, get.center)
-
-sim_by_plant.quantiles[c(1, nrow(sim_by_plant.quantiles)),] <- sapply(
-	1:3, function(plant) {
-		cohort_long_70s <- filter(cohort_long_70s, PLANT == plant)
-		c(min(cohort_long_70s$cal_obs), max(cohort_long_70s$cal_obs))
-	})
-
-sim_by_plant.binned.tab <- data.table::rbindlist(
-	lapply(1:3, function(plant) {
-		cohort_long_70s %>%
-			filter(PLANT == plant) %>%
-			group_by(calyear = cut(
-				cal_obs,
-				breaks = sim_by_plant.quantiles[, plant],
-				include.lowest = T)) %>%
-			get.sim.tab()
-	}))
-
-sim_by_plant.binned.tab$means <- as.vector(apply(sim.center, 2, rep, each = 3))
-
-closures.tab <- data.frame(
-	Plant = paste("Plant", 1:3),
-	year = c(2012, 2010, 2014)
-)
-
-sim_by_plant.binned.tab <- mutate(sim_by_plant.binned.tab, Plant = factor(Plant, 1:3, paste("Plant", 1:3)))
-sim_by_plant.binned.tab <- filter(sim_by_plant.binned.tab, outcome == "Suicide and fatal overdose")
-sim_by_plant.tab <- mutate(sim_by_plant.tab, Plant = factor(Plant, 1:3, paste("Plant", 1:3)))
-sim_by_plant.tab <- filter(sim_by_plant.tab, outcome == "Suicide and fatal overdose")
-
-ggplot(data.frame()) +
-	geom_point(
-		data = sim_by_plant.binned.tab,
-		aes(x = means,
-				y = rate * 100000,
-				shape = Plant), size = 1.1) +
-	geom_line(
-		data = sim_by_plant.binned.tab,
-		aes(x = means,
-				y = rate * 100000,
-				lty = Plant)) +
-	# geom_smooth(
-	# 	data = sim_by_plant.tab,
-	# 	aes(x = cal_obs,
-	# 			y = rate * 100000,
-	# 			color = Plant), size = 0.75, se = F,
-	# 	method = "loess",
-	# 	span = 0.7) +
-	geom_rug(
-		data = mutate(filter(cohort_long_70s, (poison == 1 | suicide == 1) & PLANT %in% 1:3), Plant = PLANT),
-		aes(x = yod15)
-	) +
-	geom_vline(
-		data = closures.tab[1,],
-		aes(xintercept = year),
-		size = 0.5, lty = "dashed", alpha = 0.5) +
-	geom_vline(
-		data = closures.tab[2,],
-		aes(xintercept = year),
-		size = 0.5, lty = "solid", alpha = 0.5) +
-	geom_vline(
-		data = closures.tab[3,],
-		aes(xintercept = year),
-		size = 0.5, lty = "dotted", alpha = 0.5) +
-	# facet_wrap(. ~ Plant, ncol = 3) +
-	xlab("Calendar Year") +
-	ylab("Self-injury Mortality Rate\nper 100,000 person-years") +
-	coord_cartesian(
-		ylim = c(0, 54)) +
-	scale_linetype_manual(values = c("dashed", "solid", "dotted")) +
-	annotate(
-		geom = "text",
-		x = 2009, y = 54, label = "Plant Closure",
-		size = 2.5, col = "black", hjust = "right", alpha = 0.5) +
-	theme.tmp + theme(
-		legend.margin = margin(0, 7, 5, 5, "pt"),
-		legend.justification = "left",
-		legend.position = c(c(0.0005, 0.884))) -> fig3
-# guides(lty = guide_legend(override.aes = list(size = 0.5)))
-
-# quartz(width = 4, height = 3)
-# fig3
-# dev.off()
-
-tikz(
-	paste0(directory.name, "/Figure 3.tex"),
-	standAlone = T,
-	width = 0.8 + 3.2 * 1,
-	height = 3
-)
-print(fig3)
-dev.off()
-
-# figure 3b ####
-# Examines unadjusted self-injury mortality rates by race over the period of downsizing
-sim_by_race.tab <- data.table::rbindlist(
-	lapply(0:1, function(race) {
-		cohort_long_70s %>%
-			filter(RACE == race) %>%
-			group_by(cal_obs) %>%
-			get.sim.tab()
-	}))
-
-sim_by_race.quantiles <- sapply(0:1, function(race) {
-	quantile(unlist(filter(cohort_long_70s, (suicide == 1 | poison == 1) & RACE == race)[, "cal_obs"]), seq(0, 1, 1/7))
-})
-
-sim.center <- apply(sim_by_race.quantiles, 2, get.center)
-
-sim_by_race.quantiles[c(1, nrow(sim_by_race.quantiles)),] <- sapply(
-	0:1, function(race) {
-		cohort_long_70s <- filter(cohort_long_70s, RACE == race)
-		c(min(cohort_long_70s$cal_obs), max(cohort_long_70s$cal_obs))
-	})
-
-sim_by_race.binned.tab <- data.table::rbindlist(
-	lapply(0:1, function(race) {
-		cohort_long_70s %>%
-			filter(RACE == race) %>%
-			group_by(calyear = cut(cal_obs,
-														 breaks = sim_by_race.quantiles[, race  + 1],
-														 include.lowest = T)) %>%
-			get.sim.tab()
-	}))
-
-sim_by_race.binned.tab %>% mutate(
-	means = 1/2 * (as.numeric(substr(calyear, 7, 10)) + as.numeric(substr(calyear, 2, 5)))
-) -> sim_by_race.binned.tab
-
-ggplot(data.frame()) +
-	geom_point(
-		data = sim_by_race.binned.tab,
-		aes(x = means,
-				y = rate * 100000,
-				shape = outcome
-		), size = 1.1) +
-	geom_smooth(
-		data = sim_by_race.tab,
-		aes(x = cal_obs,
-				y = rate * 100000,
-				lty = outcome), size = 0.75, se = F,
-		method = "loess",
-		span = 0.7, color = "black") +
-	geom_rug(
-		data = mutate(filter(cohort_long_70s, (poison == 1 | suicide == 1) & RACE %in% 0:1),
-									Race = factor(RACE, 0:1, c("Black", "White"))),
-		aes(x = yod15)) +
-	facet_wrap(. ~ Race, ncol = 3) +
-	xlab("Calendar Year") +
-	ylab("Suicide and Fatal Overdose Rate\nper 100,000 person-years") +
-	coord_cartesian(
-		xlim = c(1970, 2015),
-		ylim = c(0, 40)) +
-	scale_linetype_manual(values = c("dashed", "solid", "dotted")) +
-	theme.tmp + theme(
-		legend.spacing.x = unit(10, "pt"),
-		legend.position = "bottom",
-		legend.box.background = element_blank(),
-		legend.box.margin = margin(0, 10, 0, 0, "pt"),
-		legend.text = element_text(size = 8)) -> fig3b
-
-# quartz(height = 4, width = 0.8 + 3.2 * 2)
-# fig3b
-# dev.off()
-
-# tikz(
-# 	paste0(directory.name, "/figure 3b.tex"),
-# 	standAlone = T,
-# 	width = 0.8 + 3.2 * 2,
-# 	height = 3.25
-# )
-# print(fig3b)
-# dev.off()
 
 # Compile using lualatex
-if (!grepl("Darwin", Sys.info()['sysname'], ignore.case = T)) {
-	# Windows
-	system(
-		paste(
-			paste0("cd \"", directory.name, "\"\n"),
-			paste0("for %i in (Figure.*\\.tex) do"),
-			"lualatex $i; del %~ni.aux; del %~ni.log",
-			paste0("magick -density ", 800, " \"%~ni.pdf\" \"%~ni.png\""),
-			sep = " "
-		),
-		timeout = 20
-	)
-} else {
-	# *nix
-	sapply(list.files(directory.name, "Figure.*\\.tex"), function(x) {
-		system(
-			paste(
-				paste0("cd \"", directory.name, "\";"),
-				paste0("for i in \"", x, "\"; do {"),
-				# "ls $i",
-				"lualatex \"$i\"; rm \"${i%.tex}.aux\"; rm \"${i%.tex}.log\"",
-				paste0(
-					"magick -density ",
-					800,
-					" \"${i%.tex}.pdf\" \"${i%.tex}.png\";"
-				),
-				"} done",
-				sep = "\n"
-			),
-			timeout = 20
-		)
-	})
-}
+lualatex("Figure 1.*\\.tex", directory.name)
+
+# Age at leaving work and calendar year ####
+cohort_long %>%
+	ungroup() %>% filter(
+		YOUT16 != 1995,
+		cal_obs == floor(YOUT16),
+		yod15 > YOUT16
+	) %>% select(STUDYNO, YOUT16, YOB) -> yout_age
+
+cohort_long %>%
+	ungroup() %>% filter(
+		year_left_work.gm != 1995,
+		cal_obs == floor(year_left_work.gm),
+		yod15 > year_left_work.gm
+	) %>% select(
+		STUDYNO, year_left_work.gm, YOB,
+		YOUT16) -> year_left_work_age
+
+tikz(
+	paste0(directory.name, "/yout16_age.tex"),
+	standAlone = T,
+	width = 4,
+	height = 3
+)
+yout_age %>% ggplot(
+	aes(x = YOUT16, y = YOUT16 - YOB)
+) + geom_point(alpha = 0.2, cex = 0.2) +
+	geom_smooth(se = F, cex = 0.75) +
+	geom_hline(yintercept = 65, color = "red", alpha = 0.5) +
+	labs(x = "Year of leaving work (YOUT16)",
+			 y = "Age at leaving work") +
+	theme.tmp
+dev.off()
+lualatex("yout16_age\\.tex", directory.name, break_after = 60*3)
+
+tikz(
+	paste0(directory.name, "/year-left-work_age.tex"),
+	standAlone = T,
+	width = 4,
+	height = 3
+)
+year_left_work_age %>% ggplot(
+	aes(x = year_left_work.gm, y = year_left_work.gm - YOB)
+) + geom_point(alpha = 0.2, cex = 0.2) +
+	geom_smooth(se = F) +
+	geom_hline(yintercept = 65, color = "red", alpha = 0.5) +
+	labs(x = "Year of leaving work",
+			 y = "Age at leaving work") +
+	theme.tmp
+dev.off()
+lualatex("year-left-work_age\\.tex", directory.name, break_after = 60*3)

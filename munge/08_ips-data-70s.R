@@ -10,8 +10,8 @@ box_auth()
 library(here)
 
 # Which variable to use as year of employment end
-yout.which <- "year_left_work"
-# yout.which <- "YOUT16"
+# yout.which <- "year_left_work"
+yout.which <- "YOUT16"
 
 # Include baseline covariates YIN16, race, and sex?
 full_ps <- F
@@ -298,7 +298,13 @@ a <- dta_ips %>% ungroup() %>% select(A) %>%  unlist()
 id <- dta_ips$STUDYNO
 
 # Outcome vector for different end of FU cutoffs ####
-FU_cutoffs <- c(2015, 2010, 2005, 2000, 1995)
+FU_cutoffs <- c(
+  2015,
+  2010,
+  2005,
+  2000,
+  1995,
+  NULL)
 y <- lapply(FU_cutoffs, function(x) {
            dta_ips %>% mutate(SIM = ifelse((suicide == 1 | poison == 1) & yod15 < x + 1, 1, 0)) %>%
              select(STUDYNO, SIM) %>% distinct() %>% ungroup() %>% select(SIM) %>% unlist()
@@ -335,9 +341,9 @@ for (k in FU_cutoffs) {
              " FU through ", k, "."))
 }
 
-####################################
-# Calendar year and outcome status #
-####################################
+# ####################################
+# # Calendar year and outcome status #
+# ####################################
 # library(data.table); library(pander)
 # dta_ips_long.dt <- as.data.table(dta_ips_long)
 # dta_ips_long.dt[,`:=`(
@@ -356,7 +362,7 @@ for (k in FU_cutoffs) {
 #          "dta_ips_long.dt.rds",
 #          box.dir)
 # dta_ips_long.dt <- box_read(741123550410)
-#
+# 
 # rbindlist(lapply(c(2015, 2010, 2005, 2000, 1995), function(x) {
 #   dta_ips_long.dt[
 #     get(yout.which) >= 1970 & cal_obs >= 1970 & cal_obs <= x, .(

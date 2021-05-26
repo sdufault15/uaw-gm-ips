@@ -9,6 +9,9 @@ source(here::here("reports", "ggplot-theme.R"))
 # ggthemr(palette = "fresh",
 #         layout = "clean")
 
+# yout.which <- "year_left_work"
+yout.which <- "YOUT16"
+
 # Load analytic data based on which variable used as year of employment end
 dta_ips <- box_read(656285655983)
 
@@ -24,9 +27,6 @@ dta_ips <- dta_ips %>%
 # Study population size
 N <- length(table(dta_ips$STUDYNO))
 
-# Number of cases
-y <- dta_ips %>% mutate(SIM = ifelse(suicide == 1 | poison == 1, 1, 0)) %>% select(STUDYNO, SIM) %>% distinct() %>% ungroup() %>% select(SIM) %>% unlist()
-
 # # Load IPS results
 # ipsi.res <- box_read(667528945939)
 #
@@ -40,11 +40,11 @@ y <- dta_ips %>% mutate(SIM = ifelse(suicide == 1 | poison == 1, 1, 0)) %>% sele
 # Load IPS results for different lengths of FU
 library(data.table)
 ips.ggtab <- rbindlist(lapply(c(
-	"2015" = 667528945939,
-	"2010" = 745324315714,
-	"2005" = 745340077468,
-	"2000" = 745355315482,
-	"1995" = 745367896672
+	"2015" = ifelse(yout.which == "year_left_work", 667528945939, 814811972496),
+	# "2010" = 745324315714,
+	# "2005" = 745340077468,
+	# "2000" = 745355315482,
+	"1995" = ifelse(yout.which == "year_left_work", 745367896672, 814875681954)
 ), function(file_id) {
 	ipsi.res <- box_read(file_id)
 	ips.ggtab <- rbind(

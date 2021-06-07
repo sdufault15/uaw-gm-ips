@@ -11,6 +11,8 @@ box_auth()
 library(ggridges)
 library(ggfittext)
 
+yout.which <- "YOUT16"
+
 source(here::here("reports", "ggplot-theme.R"))
 
 # Some helper functions for ggplotting
@@ -92,10 +94,11 @@ cohort <- box_read(485768272681)
 cohort <- filter(cohort, STUDYNO %in% cohort_long$STUDYNO)
 
 # Merge end of employment
-dta.selected <- distinct(dta_end_of_employment[, c("STUDYNO",
-																									 "year_left_work",
-																									 "month_left_work",
-																									 "day_left_work")])
+dta.selected <- distinct(dta_end_of_employment[, c(
+	"STUDYNO",
+	"year_left_work",
+	"month_left_work",
+	"day_left_work")])
 
 yout.select <- function(tibble) {
 	if ("year_left_work" %in% colnames(tibble)) {
@@ -150,6 +153,12 @@ cohort_long %>% filter(poison == 1) %>% select(STUDYNO) %>% n_distinct()
 
 cohort_long %>% mutate(suicide = ifelse(cal_obs == floor(yod15) & suicide == 1, 1, 0)) -> cohort_long
 cohort_long %>% mutate(poison = ifelse(cal_obs == floor(yod15) & poison == 1, 1, 0)) -> cohort_long
+
+# Pick year of leaving work variable
+if (yout.which == "YOUT16") {
+	cohort_long$year_left_work <- floor(cohort_long$YOUT16)
+	cohort_long$year_left_work.gm <- cohort_long$YOUT16
+}
 
 # Figure 0 ####
 # Trends in worker exit for the UAW-GM cohort. The observed annual rates of leaving work among actively employed workers are denoted by the solid blue line. A smooth loess line fit to the observed annual rates is plotted in gold with an error bar to denote 95% confidence intervals. The rate of leaving work hovered around 4% from the 1960s until the early 1980s. The sharp upward trend of worker exit after 1980 is the result of forced separation from mass layoffs as well as an aging cohort that is not replenishing after 1981.

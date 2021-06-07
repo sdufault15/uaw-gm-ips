@@ -4,6 +4,17 @@ Repository to hold code for UAW GM IPS manuscript
 
 ## Change log
 
+### June 7, 2021
+
+- `munge/08_ips-data-70s.R`
+	- Lines 13-14: Choose "YOUT16" instead of "year_left_work"
+	- Lines 301-307: Add line breaks for easy commenting
+	- Line 27: Delete line for counting number of cases
+- `munge/07_adding-work-history.R`
+	- Lines 101, 105: Do not add 10 to day and month as was done for year (now irrelevant)
+- `reports/ggplot-theme.R`
+	- Lines 40-102: Helper function for compiling TikZ
+
 ### November 23, 2020
 
 - `munge/08_ips-data-70s.R`

@@ -4,6 +4,11 @@ Repository to hold code for UAW GM IPS manuscript
 
 ## Change log
 
+### September 7, 2021
+
+- `reports/2020-05-06_tables.Rmd`
+	- Lin 87: Adding length of FU to Table 1
+
 ### June 7, 2021
 
 - `munge/08_ips-data-70s.R`

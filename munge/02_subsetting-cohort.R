@@ -3,4 +3,4 @@
 
 cohort <- dta %>% 
   filter(NOHIST == 0 & WH == 1 & YIN16 >= 38) %>% 
-  select(STUDYNO, FINRACE, SEX, YOB, PLANT, YIN16, YOUT16, yod09, cod_09, V_ICD, yrin16)
+  select(STUDYNO, FINRACE, SEX, YOB, PLANT, YIN16, YOUT16, yod15, cod_15, V_ICD, yrin16)

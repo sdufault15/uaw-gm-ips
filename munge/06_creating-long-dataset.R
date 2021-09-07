@@ -3,7 +3,7 @@
 # observation in the cohort
 
 cohort_long <- cohort %>%
-    mutate(tenure = ceiling(yod09 - yrin16)) %>%
+    mutate(tenure = apply(data.frame(floor(yod15), 2015), 1, min) - floor(yrin16) + 1) %>%
     expandRows("tenure", count.is.col = TRUE, drop = FALSE) %>%
     group_by(STUDYNO) %>%
     mutate(year_obs = row_number())

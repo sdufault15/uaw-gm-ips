@@ -1,6 +1,7 @@
 # History files
 .Rhistory
 .Rapp.history
+*.DS_Store
 # Session Data files
 .RData
 # Example code in package build process
@@ -29,3 +30,17 @@ uaw-gm-ips.Rproj
 data
 papers
 ~/.boxr-oauth
+*.boxr-oauth
+*.log
+# LaTeX auxiliary files
+*.aux
+*.out
+*.blg
+# MS office temp files
+*~$*.doc
+*~$*.docx
+*~$*.xls
+*~$*.xlsx
+*~$*.ppt
+*~$*.pptx
+*~*.tmp

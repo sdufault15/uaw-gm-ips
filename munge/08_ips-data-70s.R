@@ -53,17 +53,18 @@ if (yout.which == "year_left_work") {
           time_length(difftime(as.Date(paste0(year(x), "-12-31")),
                                as.Date(paste0(year(x), "-01-01"))), "year"))
     )}
-
+  
   cohort$year_left_work.gm <- 1995
-  cohort[cohort$month_left_work != 1995, "year_left_work.gm"] <- mutate(cohort[cohort$month_left_work != 1995,],
-                                                                        year_left_work.gm = paste(year_left_work, month_left_work, day_left_work, sep = "/")
+  cohort[cohort$month_left_work != 1995, "year_left_work.gm"] <- mutate(
+    cohort[cohort$month_left_work != 1995,],
+    year_left_work.gm = paste(year_left_work, month_left_work, day_left_work, sep = "/")
   ) %>% mutate(year_left_work.gm = date.to.gm(as.Date(year_left_work.gm))) %>%
     select(year_left_work.gm) %>% unlist
-
+  
   cohort_long <- full_join(cohort_long,
                            cohort[,c("STUDYNO", "year_left_work.gm")],
                            by = "STUDYNO")
-
+  
   # Filter
   cohort %>% filter(round(year_left_work.gm - YIN16, 1) >= 3) -> cohort
   cohort_long %>% filter(round(year_left_work.gm - YIN16, 1) >= 3) -> cohort_long
@@ -145,7 +146,7 @@ dta_ips[, `:=`(
 # There are gaps in the work history data
 dta_ips[, .(
   n.missing = sum(is.na(ndays.mach))),
-        by = .(STUDYNO)][n.missing > 0]$n.missing %>% table
+  by = .(STUDYNO)][n.missing > 0]$n.missing %>% table
 
 # Fill them in, for now
 dta_ips[, `:=`(
@@ -184,7 +185,7 @@ box_save(dta_ips,
 
 # Identify pension eligibility - primarily based off of the 30-and-out rule
 dta_ips <- dta_ips %>% mutate(pension.eligibility = case_when(yearWork >= 30 ~ 1,
-                                       TRUE ~ 0))
+                                                              TRUE ~ 0))
 
 dta_ips <- dta_ips %>%
   group_by(STUDYNO) %>%
@@ -303,9 +304,9 @@ FU_cutoffs <- c(
   1995,
   NULL)
 y <- lapply(FU_cutoffs, function(x) {
-           dta_ips %>% mutate(SIM = ifelse((suicide == 1 | poison == 1) & yod15 < x + 1, 1, 0)) %>%
-             select(STUDYNO, SIM) %>% distinct() %>% ungroup() %>% select(SIM) %>% unlist()
-         })
+  dta_ips %>% mutate(SIM = ifelse((suicide == 1 | poison == 1) & yod15 < x + 1, 1, 0)) %>%
+    select(STUDYNO, SIM) %>% distinct() %>% ungroup() %>% select(SIM) %>% unlist()
+})
 names(y) <- FU_cutoffs
 sapply(y, sum)
 
@@ -314,10 +315,10 @@ for (k in FU_cutoffs) {
   dim(x.trt); dim(x.out)
   length(y_k); length(table(id))
   table(c(length(time), length(a), length(y_k) * length(table(time)) , length(id)))
-
+  
   # delta.seq <- unique(c(seq(0.1,1.5, by = 0.025), seq(1.5, 5, by = 0.5)))
   delta.seq <- unique(c(seq(0.75,1.25, by = 0.025)))
-
+  
   # File name indicating delta range
   file.name <- paste0(
     "ipsi_", round(delta.seq[1], digits = 2), "-",
@@ -325,7 +326,7 @@ for (k in FU_cutoffs) {
     ifelse(full_ps, "_full-PS", ""),
     "_FU-through-", k,
     ".RData")
-
+  
   ipsi.res <- npcausal::ipsi(y_k, a, x.trt, x.out, time, id, delta.seq, nsplits = 3)
   box_save(ipsi.res,
            dir_id = box.dir,

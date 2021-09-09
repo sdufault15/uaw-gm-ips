@@ -1,5 +1,5 @@
 # 2020-05-19_descriptive-figures.R
-# Suzanne Dufault, adpated by Kevin Chen
+# Suzanne Dufault, adapted by Kevin Chen
 # May 19, 2020
 # Descriptive plots
 
@@ -38,13 +38,13 @@ get.sim.tab <- function(tib) {
 		`Suicide and fatal overdose` = sum(poison + suicide)/length(STUDYNO),
 		Plant = PLANT[1],
 		Race = ifelse(RACE[1] == 0, "Black", "White"))
-
+	
 	sim.pivot <- pivot_longer(
 		sim.tab,
 		c("Suicide", "Fatal overdose", "Suicide and fatal overdose"),
 		names_to = "outcome",
 		values_to = "rate")
-
+	
 	return(sim.pivot)
 }
 
@@ -67,20 +67,20 @@ pretty.cut <- function(x = c("(35, 45]",
 		upper.delim <- "\\["
 		lower.delim <- "\\)"
 	}
-
+	
 	lower <-
 		gsub(" ", "", substr(x, unlist(gregexpr(upper.delim, x)) + 1,
 												 unlist(gregexpr(",", x)) - 1))
 	upper <- gsub(" ", "", substr(x, unlist(gregexpr(",", x)) + 1,
 																unlist(gregexpr(lower.delim, x)) - 1))
-
+	
 	lower <- as.numeric(lower)
 	upper <- as.numeric(upper)
-
+	
 	if (right) {
 		lower <- lower + 1
 	}
-
+	
 	return(paste0(lower, " to ", upper))
 }
 
@@ -132,16 +132,21 @@ date.to.gm <- function(x = "2013-01-01") {
 }
 
 cohort$year_left_work.gm <- 1995
-cohort[cohort$month_left_work != 1995, "year_left_work.gm"] <-
-	mutate(
-		cohort[cohort$month_left_work != 1995, ],
-		year_left_work.gm = paste(year_left_work, month_left_work, day_left_work, sep = "/")
-	) %>% mutate(year_left_work.gm = date.to.gm(as.Date(year_left_work.gm))) %>%
+cohort[cohort$month_left_work != 1995, "year_left_work.gm"] <- mutate(
+	cohort[cohort$month_left_work != 1995, ],
+	year_left_work.gm = paste(year_left_work, month_left_work, day_left_work, sep = "/")
+) %>% mutate(year_left_work.gm = date.to.gm(as.Date(year_left_work.gm))) %>%
 	select(year_left_work.gm) %>% unlist
 
 cohort_long <- full_join(cohort_long,
 												 cohort[, c("STUDYNO", "year_left_work.gm")],
 												 by = "STUDYNO")
+
+# Pick year of leaving work variable
+if (yout.which == "YOUT16") {
+	cohort_long$year_left_work <- floor(cohort_long$YOUT16)
+	cohort_long$year_left_work.gm <- cohort_long$YOUT16
+}
 
 # Filter
 cohort %>% filter(round(year_left_work.gm - YIN16, 1) >= 3) -> cohort
@@ -153,12 +158,6 @@ cohort_long %>% filter(poison == 1) %>% select(STUDYNO) %>% n_distinct()
 
 cohort_long %>% mutate(suicide = ifelse(cal_obs == floor(yod15) & suicide == 1, 1, 0)) -> cohort_long
 cohort_long %>% mutate(poison = ifelse(cal_obs == floor(yod15) & poison == 1, 1, 0)) -> cohort_long
-
-# Pick year of leaving work variable
-if (yout.which == "YOUT16") {
-	cohort_long$year_left_work <- floor(cohort_long$YOUT16)
-	cohort_long$year_left_work.gm <- cohort_long$YOUT16
-}
 
 # Figure 0 ####
 # Trends in worker exit for the UAW-GM cohort. The observed annual rates of leaving work among actively employed workers are denoted by the solid blue line. A smooth loess line fit to the observed annual rates is plotted in gold with an error bar to denote 95% confidence intervals. The rate of leaving work hovered around 4% from the 1960s until the early 1980s. The sharp upward trend of worker exit after 1980 is the result of forced separation from mass layoffs as well as an aging cohort that is not replenishing after 1981.
@@ -304,10 +303,10 @@ ggplot(data.frame()) +
 	geom_text(aes(
 		x = 1995,
 		y = filter(employment_plot.tab, cal_obs == max(cal_obs))$n / 6e2
-		),
-		label = "1995 - End of\nemployment records",
-		size = 2,
-		hjust = 0) +
+	),
+	label = "1995 - End of\nemployment records",
+	size = 2,
+	hjust = 0) +
 	coord_cartesian(
 		xlim = c(1937, 2017),
 		ylim = c(0, 46)) +
@@ -336,53 +335,27 @@ dev.off()
 # Compile using lualatex
 lualatex("Figure 1.*\\.tex", directory.name)
 
-# Age at leaving work and calendar year ####
-cohort_long %>%
-	ungroup() %>% filter(
-		YOUT16 != 1995,
-		cal_obs == floor(YOUT16),
-		yod15 > YOUT16
-	) %>% select(STUDYNO, YOUT16, YOB) -> yout_age
-
-cohort_long %>%
-	ungroup() %>% filter(
-		year_left_work.gm != 1995,
-		cal_obs == floor(year_left_work.gm),
-		yod15 > year_left_work.gm
-	) %>% select(
-		STUDYNO, year_left_work.gm, YOB,
-		YOUT16) -> year_left_work_age
-
-tikz(
-	paste0(directory.name, "/yout16_age.tex"),
-	standAlone = T,
-	width = 4,
-	height = 3
-)
-yout_age %>% ggplot(
-	aes(x = YOUT16, y = YOUT16 - YOB)
-) + geom_point(alpha = 0.2, cex = 0.2) +
-	geom_smooth(se = F, cex = 0.75) +
-	geom_hline(yintercept = 65, color = "red", alpha = 0.5) +
-	labs(x = "Year of leaving work (YOUT16)",
-			 y = "Age at leaving work") +
-	theme.tmp
-dev.off()
-lualatex("yout16_age\\.tex", directory.name, break_after = 60*3)
-
-tikz(
-	paste0(directory.name, "/year-left-work_age.tex"),
-	standAlone = T,
-	width = 4,
-	height = 3
-)
-year_left_work_age %>% ggplot(
-	aes(x = year_left_work.gm, y = year_left_work.gm - YOB)
-) + geom_point(alpha = 0.2, cex = 0.2) +
-	geom_smooth(se = F) +
-	geom_hline(yintercept = 65, color = "red", alpha = 0.5) +
-	labs(x = "Year of leaving work",
-			 y = "Age at leaving work") +
-	theme.tmp
-dev.off()
-lualatex("year-left-work_age\\.tex", directory.name, break_after = 60*3)
+# # Age at leaving work and calendar year ####
+# cohort_long %>%
+# 	ungroup() %>% filter(
+# 		YOUT16 != 1995,
+# 		cal_obs == floor(YOUT16),
+# 		yod15 > YOUT16
+# 	) %>% select(STUDYNO, YOUT16, YOB) -> yout_age
+# 
+# tikz(
+# 	paste0(directory.name, "/yout16_age.tex"),
+# 	standAlone = T,
+# 	width = 4,
+# 	height = 3
+# )
+# yout_age %>% ggplot(
+# 	aes(x = YOUT16, y = YOUT16 - YOB)
+# ) + geom_point(alpha = 0.2, cex = 0.2) +
+# 	geom_smooth(se = F, cex = 0.75) +
+# 	geom_hline(yintercept = 65, color = "red", alpha = 0.5) +
+# 	labs(x = "Year of leaving work (YOUT16)",
+# 			 y = "Age at leaving work") +
+# 	theme.tmp
+# dev.off()
+# lualatex("yout16_age\\.tex", directory.name, break_after = 60*3)
